@@ -1,0 +1,4 @@
+(copy_files# effect_handlers/*)
+
+(library
+ (name adbench))
