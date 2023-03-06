@@ -1,4 +1,4 @@
 (executable
  (public_name adbench)
  (name main)
- (libraries adbench unix owl))
+ (libraries adbench_modules adbench_shared unix owl))

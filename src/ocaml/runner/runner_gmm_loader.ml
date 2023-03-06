@@ -1,18 +1,7 @@
+open Adbench_shared.Shared_gmm_data
 open Owl.Dense.Ndarray.Generic
 
-type wishart = {
-  gamma : float;
-  m : int;
-}
-
-type gmm_input = {
-  alphas : (float, Bigarray.float64_elt) t;
-  means : (float, Bigarray.float64_elt) t;
-  icfs : (float, Bigarray.float64_elt) t;
-  x : (float, Bigarray.float64_elt) t;
-  wishart : wishart;
-}
-
+(* Load a file containing GMM inputs *)
 let load_input file_name replicate_point =
   let ic = open_in file_name in
 
@@ -65,6 +54,7 @@ let load_input file_name replicate_point =
     gamma = float_of_string (List.nth wishart_line 0);
     m = int_of_string (List.nth wishart_line 1);
   } in
+
   close_in ic;
 
   {alphas = alphas; means = means; icfs = icfs; x = x; wishart = wishart}
