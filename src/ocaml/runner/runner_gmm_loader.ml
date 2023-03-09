@@ -57,4 +57,10 @@ let load_input file_name replicate_point =
 
   close_in ic;
 
-  {alphas = alphas; means = means; icfs = icfs; x = x; wishart = wishart}
+  {
+    alphas = transpose alphas;
+    means = transpose means;
+    icfs = transpose icfs;
+    x = transpose x;
+    wishart = wishart;
+  }
