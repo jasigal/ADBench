@@ -39,11 +39,6 @@ let qtimesx qdiag l x =
   done;
   (qdiag * x) + y
 
-let log_sum_exp_vec t =
-  let mx = squeeze (max ~axis:1 t) in
-  let lset = log_sum_exp ~axis:0 (transpose t - mx) in
-  transpose (lset + mx)
-
 let log_gamma_distrib a p =
   let scalar = Stdlib.(0.25 *. float_of_int (p * (p -1)) *. log Float.pi) in
   let summed = Array.fold_left (+.) 0.0
@@ -81,17 +76,17 @@ let gmm_objective param =
 
   let icf_sz = (shape param.icfs).(0) in
   let ls = stack (Array.init icf_sz (fun i ->
-    constructl d (squeeze (get_slice [[i]] param.icfs)))
+    constructl d (squeeze (slice_left param.icfs [|i|])))
   ) in
 
   let xcentered = squeeze (stack (Array.init n (fun i ->
-    (get_slice [[i]] param.x) - param.means
+    (slice_left param.x [|i|]) - param.means
   ))) in
   let lxcentered = qtimesx qdiags ls xcentered in
   let sqsum_lxcentered = squeeze (sum_reduce ~axis:[|2|] (pow_scalar lxcentered 2.0)) in
   let inner_term = param.alphas + sum_qs - (scalar_mul 0.5 sqsum_lxcentered) in
   (* Uses the stable version as in the paper, i.e. max-shifted *)
-  let lse = squeeze (log_sum_exp_vec inner_term) in
+  let lse = squeeze (log_sum_exp ~axis:1 inner_term) in
   let slse = sum_reduce lse in
 
   let const = create Bigarray.Float64 [||] Stdlib.(
