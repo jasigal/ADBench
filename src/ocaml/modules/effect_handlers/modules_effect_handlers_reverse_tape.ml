@@ -1,6 +1,6 @@
 open Effect.Deep
 open Effect
-open Shared_smooth
+open Modules_effect_handlers_smooth
 open Array
 
 type name = {get_value : int}

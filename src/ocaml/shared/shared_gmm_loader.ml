@@ -1,4 +1,4 @@
-open Adbench_shared.Shared_gmm_data
+open Shared_gmm_data
 open Owl.Dense.Ndarray.Generic
 
 (* Load a file containing GMM inputs *)

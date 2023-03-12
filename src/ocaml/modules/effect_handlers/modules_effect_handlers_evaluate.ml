@@ -1,6 +1,6 @@
 open Effect.Deep
 open Float
-open Shared_smooth
+open Modules_effect_handlers_smooth
 
 module Evaluate = struct
   include Smooth (struct type t = float end)
