@@ -284,6 +284,7 @@ enum ToolType
     julia
     julia_tool
     matlab
+    ocaml
     py
     pybat
     python
@@ -454,6 +455,10 @@ Class Tool {
             $objective = $objective.ToLower().Replace("-", "_")
             $cmd = "matlab"
             $cmdargs = @("-wait", "-nosplash", "-nodesktop", "-r", "cd '$script:dir/tools/$($this.name)/'; addpath('$script:bindir/tools/$($this.name)/'); $($this.name)_$objective $cmdargs; quit")
+        } elseif ($this.type -eq [ToolType]::ocaml) {
+            $cmd = "dune"
+            $module_path = "OCaml"
+            $cmdargs = @("exec", "--root=$script:dir/src/ocaml", "--no-build", "adbench") + @("$objective", "$module_path", "$dir_in$fn.txt", "$dir_out", "$script:minimum_measurable_time", "$script:nruns_f", "$script:nruns_J", "$script:time_limit")
         }
 
         $run_command_status = run_command "          " $output_file $script:timeout $cmd @cmdargs
@@ -705,6 +710,7 @@ $tool_descriptors = @(
     [Tool]::new("Autograd", "py", [ObjectiveType] "GMM, BA", $false, 0.0, $true, $false)
     [Tool]::new("Julia", "julia_tool", [ObjectiveType] "GMM, BA", $false, 0.0)
     [Tool]::new("Zygote", "julia", [ObjectiveType] "GMM, BA, Hand, LSTM", $true, $default_tolerance)
+    [Tool]::new("OCaml", "ocaml", [ObjectiveType] "GMM", $false, 0.0)
     #[Tool]::new("Theano", "pybat", [ObjectiveType] "GMM, BA, Hand", $false, 0.0)
     #[Tool]::new("MuPad", "matlab", 0, $false, 0.0)
     #[Tool]::new("ADiMat", "matlab", 0, $false, 0.0)

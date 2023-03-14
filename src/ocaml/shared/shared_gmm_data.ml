@@ -14,3 +14,14 @@ type gmm_input = {
   x : (float, Bigarray.float64_elt) t;
   wishart : wishart;
 }
+
+(* Output data *)
+type gmm_output = {
+  objective : float;
+  gradient : (float, Bigarray.float64_elt) t;
+}
+
+(* Parameters *)
+type gmm_parameters = {
+  replicate_point : bool;
+}

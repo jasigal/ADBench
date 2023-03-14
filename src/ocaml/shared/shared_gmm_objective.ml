@@ -94,6 +94,8 @@ let gmm_objective param =
   ) in
   
   let wish = log_wishart_prior d param.wishart sum_qs qdiags param.icfs in
-  const + slse
-        - scalar_mul (float_of_int n) (squeeze (log_sum_exp param.alphas))
-        + wish
+  get (
+    const + slse
+          - scalar_mul (float_of_int n) (squeeze (log_sum_exp param.alphas))
+          + wish
+  ) [|0|]
