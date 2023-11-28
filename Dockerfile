@@ -41,7 +41,7 @@ RUN opam init --yes --disable-sandboxing && \
     opam switch create 5.0.0 && \
     eval $(opam env) && \
     opam install dune=3.7.0 && \
-    eval $(opam env)
+    echo 'eval $(opam env)' >> /root/.bashrc
 
 WORKDIR /adb
 # Copy code to /adb (.dockerignore exclude some files)
@@ -51,7 +51,8 @@ COPY . .
 WORKDIR /adb/build
 
 # Configure and build
-RUN cmake -DCMAKE_BUILD_TYPE=release .. \
+RUN eval $(opam env) \
+    && cmake -DCMAKE_BUILD_TYPE=release .. \
     && make -j 6
 
 WORKDIR /adb/ADBench

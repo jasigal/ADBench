@@ -46,6 +46,13 @@ find_package(Eigen3 REQUIRED)
 include_directories("${EIGEN_ROOT}/share/eigen3/cmake")
 include_directories("${EIGEN3_INCLUDE_DIRS}")
 
+# Neede for OCaml dependency
+hunter_add_package(ZLIB)
+find_package(ZLIB CONFIG REQUIRED)
+
+hunter_add_package(OpenBLAS)
+find_package(OpenBLAS CONFIG REQUIRED)
+
 # Set constants
 set(GMM_D_VALS 2 10 20 32 64 128)
 set(GMM_K_VALS 5 10 25 50 100 200)
