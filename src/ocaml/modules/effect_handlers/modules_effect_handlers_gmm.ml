@@ -22,14 +22,14 @@ module GMMTest () : Shared_test_interface.TEST
           objective := Shared_gmm_objective.gmm_objective param
         done
   let calculate_jacobian times =
-  match !input with
-    | None -> ()
-    | Some param ->
-      for _ = 1 to times do
-        objective := Shared_gmm_objective.gmm_objective param;
-        objective := Shared_gmm_objective.gmm_objective param;
-        objective := Shared_gmm_objective.gmm_objective param
-      done
+    match !input with
+      | None -> ()
+      | Some param ->
+        for _ = 1 to times do
+          objective := Shared_gmm_objective.gmm_objective param;
+          objective := Shared_gmm_objective.gmm_objective param;
+          objective := Shared_gmm_objective.gmm_objective param
+        done
   let output _ =
     {
       Shared_gmm_data.objective = !objective;

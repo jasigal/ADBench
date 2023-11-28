@@ -128,7 +128,7 @@ module Make
 
     let repeats = ref 1 in
 
-    (* Exit not thrown my any library functionr, we use it for a loop break. *)
+    (* Exit not thrown by any library function, we use it for a loop break. *)
     let _ =
       try
         while true do

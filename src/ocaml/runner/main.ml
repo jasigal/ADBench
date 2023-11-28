@@ -41,14 +41,3 @@ let () =
     (GMM_IO)
   in
   Benchmark.run params {replicate_point = replicate_point}
-  (* let module Loader = Adbench_shared.Shared_gmm_loader in
-  let res = Loader.load_input "/adb/data/gmm/1k/gmm_d10_K5.txt" false in
-
-  let module Runner = GMMTest () in
-  Runner.prepare res;
-  Runner.calculate_objective 5;
-  Runner.calculate_jacobian 5;
-  let ans = Runner.output () in
-  Printf.printf "%f\n" Adbench_shared.Shared_gmm_data.(ans.objective); *)
-
-  (* -31302.540910910437 *)
