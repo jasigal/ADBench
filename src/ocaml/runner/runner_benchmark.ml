@@ -72,13 +72,23 @@ module Output_formatter = struct
     close_out oc
 end
 
+module T = Owl.Dense.Ndarray.Generic
+
 module GMM_IO : DATA_IO
-  with type input = Adbench_shared.Shared_gmm_data.gmm_input
-  with type output = Adbench_shared.Shared_gmm_data.gmm_output
+  with type input =
+    (float, (float, Bigarray.float64_elt) T.t)
+      Adbench_shared.Shared_gmm_data.gmm_input
+  with type output =
+    (float, (float, Bigarray.float64_elt) T.t)
+      Adbench_shared.Shared_gmm_data.gmm_output
   with type parameters = Adbench_shared.Shared_gmm_data.gmm_parameters
 = struct
-  type input = Adbench_shared.Shared_gmm_data.gmm_input
-  type output = Adbench_shared.Shared_gmm_data.gmm_output
+  type input =
+    (float, (float, Bigarray.float64_elt) T.t)
+      Adbench_shared.Shared_gmm_data.gmm_input
+  type output =
+    (float, (float, Bigarray.float64_elt) T.t)
+      Adbench_shared.Shared_gmm_data.gmm_output
   type parameters = Adbench_shared.Shared_gmm_data.gmm_parameters
 
   open Adbench_shared.Shared_gmm_data

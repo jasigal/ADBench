@@ -1,24 +1,22 @@
-open Owl.Dense.Ndarray.Generic
-
 (* Wishart priors *)
-type wishart = {
-  gamma : float;
+type 's wishart = {
+  gamma : 's ;
   m : int;
 }
 
 (* GMM data as arrays *)
-type gmm_input = {
-  alphas : (float, Bigarray.float64_elt) t;
-  means : (float, Bigarray.float64_elt) t;
-  icfs : (float, Bigarray.float64_elt) t;
-  x : (float, Bigarray.float64_elt) t;
-  wishart : wishart;
+type ('s, 't) gmm_input = {
+  alphas : 't;
+  means : 't;
+  icfs : 't;
+  x : 't;
+  wishart : 's wishart;
 }
 
 (* Output data *)
-type gmm_output = {
-  objective : float;
-  gradient : (float, Bigarray.float64_elt) t;
+type ('s, 't) gmm_output = {
+  objective : 's;
+  gradient : 't;
 }
 
 (* Parameters *)
