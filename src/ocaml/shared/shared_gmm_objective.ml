@@ -40,7 +40,7 @@ let qtimesx qdiag l x =
   (qdiag * x) + y
 
 let log_gamma_distrib a p =
-  let scalar = Stdlib.(0.25 *. float_of_int (p * (p -1)) *. log Float.pi) in
+  let scalar = Stdlib.(0.25 *. float_of_int (p * (p - 1)) *. log Float.pi) in
   let summed = Array.fold_left (+.) 0.0
     (Array.init p (fun i ->
       Owl.Maths.loggamma (a +. 0.5 *. float_of_int Stdlib.(1 - (i + 1)))
@@ -69,10 +69,10 @@ let log_wishart_prior p wishart sum_qs qdiags icf =
 let gmm_objective param =
   let xshape = shape param.x in
   let n = xshape.(0) in
-  let d = xshape.(1) in  
+  let d = xshape.(1) in
 
   let qdiags = exp (get_slice [[]; [0; Stdlib.(d - 1)]] param.icfs) in
-  let sum_qs = squeeze (sum_reduce ~axis:[|1|] (get_slice [[]; [0; Stdlib.(-) d 1]] param.icfs)) in
+  let sum_qs = squeeze (sum_reduce ~axis:[|1|] (get_slice [[]; [0; Stdlib.(d - 1)]] param.icfs)) in
 
   let icf_sz = (shape param.icfs).(0) in
   let ls = stack (Array.init icf_sz (fun i ->
