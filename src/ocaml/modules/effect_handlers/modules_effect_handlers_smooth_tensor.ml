@@ -10,6 +10,7 @@ type t_to_t
   | Reshape of int array
   | GetSlice of int list list
   | SliceLeft of int array
+  | Transpose of int array option
   | Exp
   | Negate
   | PowerConst of float
@@ -17,7 +18,7 @@ type t_to_t
   | LogSumExp of int option * bool option
 type t_in_t = SetSlice of int list list
 type t't_to_t = Add | Subtract | Multiply
-type t't_in_t = MVInplace
+type t't_in_t = MVInplace of bool option
 
 type t_to_s = Get of int array
 type s't_to_t = ScalarMultiply | SubtractScalar
@@ -65,9 +66,11 @@ module type SMOOTH = sig
   (* Splitting tensors *)
   val split : ?axis:int -> int array -> tensor -> tensor array
 
+  val transpose : ?axis:int array -> tensor -> tensor
+  val reshape : tensor -> int array -> tensor
+
   (* Shrinking and slicing tensors *)
   val squeeze : ?axis:int array -> tensor -> tensor
-  val reshape : tensor -> int array -> tensor
   val get_slice : int list list -> tensor -> tensor
   val slice_left : tensor -> int array -> tensor
   val get : tensor -> int array -> scalar
@@ -76,7 +79,7 @@ module type SMOOTH = sig
   val set_slice : int list list -> tensor -> tensor -> unit
 
   (* Matrix-vector multiplication *)
-  val mv_inplace : tensor -> tensor -> tensor -> unit
+  val mv_inplace : ?trans:bool -> tensor -> tensor -> tensor -> unit
 
   (* Pointwise tensor operations *)
   val exp : tensor -> tensor
@@ -112,10 +115,11 @@ module type SMOOTH = sig
   val der_s's_to_s : s's_to_s -> scalar -> scalar -> (scalar -> scalar * scalar)
 
   val der_t_to_t : t_to_t -> tensor -> (tensor -> tensor)
-  (* val der_t't_to_t : t't_to_t -> tensor -> tensor -> (tensor -> tensor * tensor)
+  val der_t_in_t : t_in_t -> tensor -> (tensor -> tensor)
+  val der_t't_to_t : t't_to_t -> tensor -> tensor -> (tensor -> tensor * tensor)
   val der_t't_in_t : t't_in_t -> tensor -> tensor -> (tensor -> tensor * tensor)
   
-  val der_s_to_t : s_to_t -> scalar -> (tensor -> scalar)
+  (* val der_s_to_t : s_to_t -> scalar -> (tensor -> scalar)
   val der_t_to_s : t_to_s -> tensor -> (scalar -> tensor)
   val der_s't_to_t : s't_to_t -> scalar -> tensor -> (tensor -> scalar * tensor)
   val der_ta_to_t : ta_to_t -> tensor array -> (tensor -> tensor array) *)
@@ -160,13 +164,14 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
   let concatenate ?axis ta = perform (Ap_ta_to_t (Concatenate axis, ta))
   let stack ?axis ta = perform (Ap_ta_to_t (Stack axis, ta))
   let split ?axis ia t = perform (Ap_t_to_ta (Split (axis, ia), t))
-  let squeeze ?axis t =  perform (Ap_t_to_t (Squeeze axis, t))
+  let transpose ?axis t = perform (Ap_t_to_t (Transpose axis, t))
   let reshape t d = perform (Ap_t_to_t (Reshape d, t))
+  let squeeze ?axis t =  perform (Ap_t_to_t (Squeeze axis, t))
   let get_slice ill t = perform (Ap_t_to_t (GetSlice ill, t))
   let slice_left t ia = perform (Ap_t_to_t (SliceLeft ia, t))
   let get t ia = perform (Ap_t_to_s (Get ia, t))
   let set_slice ill t1 t2 = perform (Ap_t_in_t (SetSlice ill, t1, t2))
-  let mv_inplace a x y = perform (Ap_t't_in_t (MVInplace, a, x, y))
+  let mv_inplace ?trans a x y = perform (Ap_t't_in_t (MVInplace trans, a, x, y))
   let exp t = perform (Ap_t_to_t (Exp, t))
   let ( ~- ) t = perform (Ap_t_to_t (Negate, t))
   let pow_const t f = perform (Ap_t_to_t (PowerConst f,t))
@@ -194,6 +199,15 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
     done;
     !res
 
+  (* Inverse of a permutation *)
+  let _inv_perm p =
+    let l = Array.length p in
+    let q = Array.make l 0 in
+    for i = 0 to Stdlib.(l - 1) do
+      q.(p.(i)) <- i;
+    done;
+    q
+
   let op_u_to_s (o : u_to_s) = match o with
     | Const x -> c x
   let op_s_to_s (o : s_to_s) s = match o with
@@ -216,6 +230,10 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
     | Reshape d -> reshape t d
     | GetSlice ill -> get_slice ill t
     | SliceLeft ia -> slice_left t ia
+    | Transpose iao -> (match iao with
+      | None -> transpose t
+      | Some ia -> transpose ~axis:ia t
+      )
     | Exp -> exp t
     | Negate -> ~- t
     | PowerConst f -> pow_const t f
@@ -236,7 +254,10 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
     | Subtract -> t1 - t2
     | Multiply -> t1 * t2
   let op_t't_in_t (o : t't_in_t) a x y = match o with
-    | MVInplace -> mv_inplace a x y
+    | MVInplace bo -> (match bo with
+      | None -> mv_inplace a x y
+      | Some b -> mv_inplace ~trans:b a x y
+      )
 
   let op_t_to_s (o : t_to_s) t = match o with
     | Get ia -> get t ia
@@ -274,6 +295,14 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
       let ill = Array.to_list (Array.map (fun i -> [i]) ia) in
       set_slice ill res td;
       res
+    | Transpose iao ->
+      let ia = match iao with
+        | None ->
+          let d = Array.length (shape t) in
+          Array.init d Stdlib.(fun i -> d - i - 1)
+        | Some ia -> ia
+      in
+      fun td -> transpose ~axis:(_inv_perm ia) td
     | Exp -> fun td -> exp t * td
     | Negate -> fun td -> ~- td
     | PowerConst f -> fun td ->
@@ -298,4 +327,27 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
           shp.(i) <- 1;
           (reshape td shp) * (t - (reshape (log_sum_exp t) shp))
     )
+
+  let der_t_in_t (o : t_in_t) _ = match o with
+    | SetSlice ill -> fun td -> get_slice ill td
+
+  let der_t't_to_t (o : t't_to_t) t1 t2 = match o with
+    | Add -> fun td -> (td, td)
+    | Subtract -> fun td -> (td, ~- td)
+    | Multiply -> fun td -> (t2 * td, t1 * td)
+
+  let der_t't_in_t (o : t't_in_t) a x = match o with
+    | MVInplace bo ->
+      let b = match bo with
+        | None -> false
+        | Some b -> b
+      in
+      (* a is a matrx, x is a vector *)
+      (fun td ->
+        let (ad, xd) = (zeros (shape a), zeros (shape x)) in
+        let xm = reshape x [|(shape x).(0); 1|] in
+        mv_inplace ~trans:(not b) td (transpose ~axis:[|1;0|] xm) ad;
+        mv_inplace ~trans:(not b) a td ad;
+        (ad, xd)
+      )
 end
