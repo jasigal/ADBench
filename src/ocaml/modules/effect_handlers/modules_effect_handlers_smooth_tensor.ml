@@ -20,7 +20,7 @@ type t_in_t = SetSlice of int list list
 type t't_to_t = Add | Subtract | Multiply
 type t't_in_t = MVInplace of bool option
 
-type t_to_s = Get of int array
+type t_to_s = Get of int array | Sum
 type s't_to_t = ScalarMultiply | SubtractScalar
 type ta_to_t = Concatenate of int option | Stack of int option
 type t_to_ta = Split of int option * int array
@@ -90,6 +90,7 @@ module type SMOOTH = sig
   val ( * ) : tensor -> tensor -> tensor
 
   (* Reduction operations *)
+  val sum : tensor -> scalar
   val sum_reduce : ?axis:int array -> tensor -> tensor
   val log_sum_exp : ?axis:int -> ?keep_dims:bool -> tensor -> tensor
 
@@ -119,10 +120,10 @@ module type SMOOTH = sig
   val der_t't_to_t : t't_to_t -> tensor -> tensor -> (tensor -> tensor * tensor)
   val der_t't_in_t : t't_in_t -> tensor -> tensor -> (tensor -> tensor * tensor)
   
-  (* val der_s_to_t : s_to_t -> scalar -> (tensor -> scalar)
   val der_t_to_s : t_to_s -> tensor -> (scalar -> tensor)
   val der_s't_to_t : s't_to_t -> scalar -> tensor -> (tensor -> scalar * tensor)
-  val der_ta_to_t : ta_to_t -> tensor array -> (tensor -> tensor array) *)
+  (* val der_ta_to_t : ta_to_t -> tensor array -> (tensor -> tensor array)
+  val der_t_to_ta : ta_to_t -> tensor -> (tensor array -> tensor) *)
 end
 
 module type SMOOTH_NON_DIFF = sig
@@ -178,6 +179,7 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
   let ( + ) t1 t2 = perform (Ap_t't_to_t (Add, t1, t2))
   let ( - ) t1 t2 = perform (Ap_t't_to_t (Subtract, t1, t2))
   let ( * ) t1 t2 = perform (Ap_t't_to_t (Multiply, t1, t2))
+  let sum t = perform (Ap_t_to_s (Sum, t))
   let sum_reduce ?axis t = perform (Ap_t_to_t (SumReduce axis, t))
   let log_sum_exp ?axis ?keep_dims t =
     perform (Ap_t_to_t (LogSumExp (axis, keep_dims), t))
@@ -261,6 +263,7 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
 
   let op_t_to_s (o : t_to_s) t = match o with
     | Get ia -> get t ia
+    | Sum -> sum t
   let op_s't_to_t (o : s't_to_t) s t = match o with
     | ScalarMultiply -> scalar_mul s t
     | SubtractScalar -> sub_scalar t s
@@ -350,4 +353,16 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
         mv_inplace ~trans:(not b) a td ad;
         (ad, xd)
       )
+  let der_t_to_s (o : t_to_s) t = match o with
+    | Get ia ->
+      let ill = Array.to_list (Array.map (fun i -> [i]) ia) in
+      (fun sd ->
+        let td = (zeros (shape t)) in
+        set_slice ill td (scalar_mul sd (create [||] 1.0));
+        td
+      )
+    | Sum -> fun sd -> scalar_mul sd (create (shape t) 1.0)
+  let der_s't_to_t (o : s't_to_t) s t = match o with
+    | ScalarMultiply -> fun td -> (sum (t * td), scalar_mul s td)
+    | SubtractScalar -> fun td -> (~. (sum td), td)
 end
