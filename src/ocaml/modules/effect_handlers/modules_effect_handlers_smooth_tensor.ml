@@ -122,8 +122,8 @@ module type SMOOTH = sig
   
   val der_t_to_s : t_to_s -> tensor -> (scalar -> tensor)
   val der_s't_to_t : s't_to_t -> scalar -> tensor -> (tensor -> scalar * tensor)
-  (* val der_ta_to_t : ta_to_t -> tensor array -> (tensor -> tensor array)
-  val der_t_to_ta : ta_to_t -> tensor -> (tensor array -> tensor) *)
+  val der_ta_to_t : ta_to_t -> tensor array -> (tensor -> tensor array)
+  val der_t_to_ta : t_to_ta -> tensor -> (tensor array -> tensor)
 end
 
 module type SMOOTH_NON_DIFF = sig
@@ -365,4 +365,31 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
   let der_s't_to_t (o : s't_to_t) s t = match o with
     | ScalarMultiply -> fun td -> (sum (t * td), scalar_mul s td)
     | SubtractScalar -> fun td -> (~. (sum td), td)
+  let der_ta_to_t (o : ta_to_t) ta = match o with
+    | Concatenate io ->
+      let i = (match io with
+        | None -> 0
+        | Some i -> i
+      ) in
+      fun td -> split ~axis:i (Array.map (fun x -> (shape x).(i)) ta) td
+    | Stack io ->
+      let i = (match io with
+        | None -> 0
+        | Some i -> i
+      ) in
+      (fun td ->
+        let shp = shape td in
+        let ndim = Array.length shp in
+        let axis = Owl_utils.adjust_index i ndim in
+        let inp_shp = shape ta.(0) in
+        split ~axis:i (Array.make shp.(axis) 1) td
+          |> Array.map (fun x -> reshape x inp_shp)
+      )
+  let der_t_to_ta (o : t_to_ta) _ = match o with
+    | Split (io, _) ->
+      let i = (match io with
+        | None -> 0
+        | Some i -> i
+      ) in
+      fun tda -> concatenate ~axis:i tda
 end
