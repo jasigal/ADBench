@@ -15,6 +15,7 @@ type t_to_t
   | PowerConst of float
   | SumReduce of int array option
   | LogSumExp of int option * bool option
+type t_in_t = SetSlice of int list list
 type t't_to_t = Add | Subtract | Multiply
 type t't_in_t = MVInplace
 
@@ -34,6 +35,7 @@ module type SMOOTH = sig
     | Ap_s's_to_s : s's_to_s * scalar * scalar -> scalar Effect.t
     | Ap_u_to_t : u_to_t -> tensor Effect.t
     | Ap_t_to_t : t_to_t * tensor -> tensor Effect.t
+    | Ap_t_in_t : t_in_t * tensor * tensor -> unit Effect.t
     | Ap_t't_to_t : t't_to_t * tensor * tensor -> tensor Effect.t
     | Ap_t't_in_t : t't_in_t * tensor * tensor * tensor -> unit Effect.t
     | Ap_t_to_s : t_to_s * tensor -> scalar Effect.t
@@ -48,6 +50,9 @@ module type SMOOTH = sig
   val ( -. ) : scalar -> scalar -> scalar
   val ( *. ) : scalar -> scalar -> scalar
   val ( /. ) : scalar -> scalar -> scalar
+
+  (* Non-differentiable operations *)
+  val shape : tensor -> int array
 
   (* Creating constant tensors *)
   val zeros : int array -> tensor
@@ -66,6 +71,9 @@ module type SMOOTH = sig
   val get_slice : int list list -> tensor -> tensor
   val slice_left : tensor -> int array -> tensor
   val get : tensor -> int array -> scalar
+
+  (* Changing in place *)
+  val set_slice : int list list -> tensor -> tensor -> unit
 
   (* Matrix-vector multiplication *)
   val mv_inplace : tensor -> tensor -> tensor -> unit
@@ -92,6 +100,7 @@ module type SMOOTH = sig
 
   val op_u_to_t : u_to_t -> tensor
   val op_t_to_t : t_to_t -> tensor -> tensor
+  val op_t_in_t : t_in_t -> tensor -> tensor -> unit
   val op_t't_to_t : t't_to_t -> tensor -> tensor -> tensor
   val op_t't_in_t : t't_in_t -> tensor -> tensor -> tensor -> unit
 
@@ -102,8 +111,8 @@ module type SMOOTH = sig
   val der_s_to_s : s_to_s -> scalar -> (scalar -> scalar)
   val der_s's_to_s : s's_to_s -> scalar -> scalar -> (scalar -> scalar * scalar)
 
-  (* val der_t_to_t : t_to_t -> tensor -> (tensor -> tensor)
-  val der_t't_to_t : t't_to_t -> tensor -> tensor -> (tensor -> tensor * tensor)
+  val der_t_to_t : t_to_t -> tensor -> (tensor -> tensor)
+  (* val der_t't_to_t : t't_to_t -> tensor -> tensor -> (tensor -> tensor * tensor)
   val der_t't_in_t : t't_in_t -> tensor -> tensor -> (tensor -> tensor * tensor)
   
   val der_s_to_t : s_to_t -> scalar -> (tensor -> scalar)
@@ -112,7 +121,16 @@ module type SMOOTH = sig
   val der_ta_to_t : ta_to_t -> tensor array -> (tensor -> tensor array) *)
 end
 
-module Smooth (T : sig type scalar type tensor end) : SMOOTH with type scalar = T.scalar with type tensor = T.tensor = struct
+module type SMOOTH_NON_DIFF = sig
+  type scalar
+  type tensor
+  
+  val shape : tensor -> int array
+end
+
+module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with type tensor = T.tensor = struct
+  include T
+  
   type scalar = T.scalar
   type tensor = T.tensor
   type _ Effect.t +=
@@ -121,6 +139,7 @@ module Smooth (T : sig type scalar type tensor end) : SMOOTH with type scalar = 
     | Ap_s's_to_s : s's_to_s * scalar * scalar -> scalar Effect.t
     | Ap_u_to_t : u_to_t -> tensor Effect.t
     | Ap_t_to_t : t_to_t * tensor -> tensor Effect.t
+    | Ap_t_in_t : t_in_t * tensor * tensor -> unit Effect.t
     | Ap_t't_to_t : t't_to_t * tensor * tensor -> tensor Effect.t
     | Ap_t't_in_t : t't_in_t * tensor * tensor * tensor -> unit Effect.t
     | Ap_t_to_s : t_to_s * tensor -> scalar Effect.t
@@ -141,11 +160,12 @@ module Smooth (T : sig type scalar type tensor end) : SMOOTH with type scalar = 
   let concatenate ?axis ta = perform (Ap_ta_to_t (Concatenate axis, ta))
   let stack ?axis ta = perform (Ap_ta_to_t (Stack axis, ta))
   let split ?axis ia t = perform (Ap_t_to_ta (Split (axis, ia), t))
-  let squeeze ?axis t = perform (Ap_t_to_t (Squeeze axis, t))
+  let squeeze ?axis t =  perform (Ap_t_to_t (Squeeze axis, t))
   let reshape t d = perform (Ap_t_to_t (Reshape d, t))
   let get_slice ill t = perform (Ap_t_to_t (GetSlice ill, t))
   let slice_left t ia = perform (Ap_t_to_t (SliceLeft ia, t))
   let get t ia = perform (Ap_t_to_s (Get ia, t))
+  let set_slice ill t1 t2 = perform (Ap_t_in_t (SetSlice ill, t1, t2))
   let mv_inplace a x y = perform (Ap_t't_in_t (MVInplace, a, x, y))
   let exp t = perform (Ap_t_to_t (Exp, t))
   let ( ~- ) t = perform (Ap_t_to_t (Negate, t))
@@ -158,6 +178,21 @@ module Smooth (T : sig type scalar type tensor end) : SMOOTH with type scalar = 
     perform (Ap_t_to_t (LogSumExp (axis, keep_dims), t))
   let scalar_mul s t = perform (Ap_s't_to_t (ScalarMultiply, s ,t))
   let sub_scalar t s = perform (Ap_s't_to_t (SubtractScalar, s ,t))
+
+  (* Simple expand operation.
+     Requires:
+      - length (shape t) = length ia
+      - for each 0 <= j < length (shape t), t[j] = ia[j] or t[j] = 1
+  *)
+  let _expand t ia =
+    let res = ref t in
+    for j = 0 to Stdlib.(Array.length ia - 1) do
+      if (shape t).(j) == ia.(j)
+        then ()
+        else
+          res := concatenate ~axis:j (Array.make ia.(j) !res)
+    done;
+    !res
 
   let op_u_to_s (o : u_to_s) = match o with
     | Const x -> c x
@@ -194,6 +229,8 @@ module Smooth (T : sig type scalar type tensor end) : SMOOTH with type scalar = 
       | (None, Some b) -> log_sum_exp ~keep_dims:b t
       | (Some i, Some b) -> log_sum_exp ~axis:i ~keep_dims:b t
       )
+  let op_t_in_t (o : t_in_t) t1 t2 = match o with
+    | SetSlice ill -> set_slice ill t1 t2
   let op_t't_to_t (o : t't_to_t) t1 t2 = match o with
     | Add -> t1 + t2
     | Subtract -> t1 - t2
@@ -217,11 +254,48 @@ module Smooth (T : sig type scalar type tensor end) : SMOOTH with type scalar = 
       )
 
   let der_s_to_s (o : s_to_s) s = match o with
-    | Negate -> fun td -> ~. td
-    | Log -> fun td -> td /. s
+    | Negate -> fun sd -> ~. sd
+    | Log -> fun sd -> sd /. s
   let der_s's_to_s (o : s's_to_s) s1 s2 = match o with
-    | Add -> fun td -> (td, td)
-    | Subtract -> fun td -> (td, ~. td)
-    | Multiply -> fun td -> (s2 *. td, s1 *. td)
-    | Divide -> fun td -> (td /. s2, (td *. (~. s1)) /. (s2 *. s2))
+    | Add -> fun sd -> (sd, sd)
+    | Subtract -> fun sd -> (sd, ~. sd)
+    | Multiply -> fun sd -> (s2 *. sd, s1 *. sd)
+    | Divide -> fun sd -> (sd /. s2, (sd *. (~. s1)) /. (s2 *. s2))
+
+  let der_t_to_t (o : t_to_t) t = match o with
+    | Squeeze _ -> fun td -> reshape td (shape t)
+    | Reshape _ -> fun td -> reshape td (shape t)
+    | GetSlice ill -> fun td ->
+      let res = zeros (shape t) in
+      set_slice ill res td;
+      res
+    | SliceLeft ia -> fun td ->
+      let res = zeros (shape t) in
+      let ill = Array.to_list (Array.map (fun i -> [i]) ia) in
+      set_slice ill res td;
+      res
+    | Exp -> fun td -> exp t * td
+    | Negate -> fun td -> ~- td
+    | PowerConst f -> fun td ->
+      scalar_mul (c f) (td * pow_const t Stdlib.(f -. 1.0))
+    | SumReduce iao ->
+      let ia = (match iao with
+        | None -> shape t
+        | Some ia -> ia
+      ) in
+      fun td -> _expand td ia
+    | LogSumExp (io, bo) -> (
+      let (i, b) = match (io, bo) with
+        | (None, None) -> (0, true)
+        | (Some i, None) -> (i, true)
+        | (None, Some b) -> (0, b)
+        | (Some i, Some b) -> (i, b)
+      in
+      if b
+        then fun td -> td * exp (t - log_sum_exp t)
+        else fun td ->
+          let shp = shape t in
+          shp.(i) <- 1;
+          (reshape td shp) * (t - (reshape (log_sum_exp t) shp))
+    )
 end
