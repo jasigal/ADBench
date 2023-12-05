@@ -21,7 +21,7 @@ module type GMM_TENSOR = sig
 
   (* Creating constant tensors *)
   val zeros : int array -> t
-  val create : int array -> scalar -> t
+  val create : int array -> float -> t
 
   (* Combining tensors *)
   val concatenate : ?axis:int -> t array -> t
@@ -34,7 +34,7 @@ module type GMM_TENSOR = sig
   val get : t -> int array -> scalar
 
   (* Matrix-vector multiplication *)
-  val mv_inplace : t -> t -> t -> unit
+  val mv_inplace : ?trans:bool -> t -> t -> t -> unit
 
   (* Pointwise tensor operations *)
   val exp : t -> t
@@ -48,6 +48,8 @@ module type GMM_TENSOR = sig
 
   (* Scalar-tensor operations *)
   val scalar_mul : scalar -> t -> t
-  val pow_scalar : t -> scalar -> t
   val sub_scalar : t -> scalar -> t
+
+  (* Tensor-float operations *)
+  val pow_const : t -> float -> t
 end

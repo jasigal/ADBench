@@ -79,8 +79,8 @@ module Make
       (
         scalar_mul (S.float 0.5 *. wishart.gamma *. wishart.gamma)
           (squeeze (
-            sum_reduce ~axis:[|1|] (pow_scalar qdiags (S.float 2.0)) +
-            sum_reduce ~axis:[|1|] (pow_scalar (get_slice [[]; [p;-1]] icf) (S.float 2.0))
+            sum_reduce ~axis:[|1|] (pow_const qdiags 2.0) +
+            sum_reduce ~axis:[|1|] (pow_const (get_slice [[]; [p;-1]] icf) 2.0)
           ))
       )
       - (scalar_mul (S.float (float_of_int wishart.m)) sum_qs)
@@ -115,7 +115,7 @@ module Make
     ))) in
     let lxcentered = qtimesx qdiags ls xcentered in
     let sqsum_lxcentered = squeeze (
-      sum_reduce ~axis:[|2|] (pow_scalar lxcentered (S.float 2.0))
+      sum_reduce ~axis:[|2|] (pow_const lxcentered 2.0)
     ) in
     let inner_term =
       param.alphas + sum_qs - (scalar_mul (S.float 0.5) sqsum_lxcentered)
@@ -124,9 +124,9 @@ module Make
     let lse = squeeze (log_sum_exp ~axis:1 inner_term) in
     let slse = sum_reduce lse in
 
-    let const = create [||] (S.float Stdlib.(
+    let const = create [||] Stdlib.(
       -. (float_of_int n) *. (float_of_int d) *. 0.5 *. log (2.0 *. Float.pi)
-    )) in
+    ) in
     
     let wish = log_wishart_prior d param.wishart sum_qs qdiags param.icfs in
     get (

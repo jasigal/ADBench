@@ -1,7 +1,9 @@
 open Adbench_shared
 open Owl.Dense.Ndarray.Generic
+open Modules_effect_handlers_evaluate_tensor
+open Modules_effect_handlers_reverse_tensor
 
-module FloatScalar : Adbench_shared.Shared_gmm_types.GMM_SCALAR
+module FloatScalar : Shared_gmm_types.GMM_SCALAR
   with type t = float
 = struct
   type t = float
@@ -14,7 +16,27 @@ module FloatScalar : Adbench_shared.Shared_gmm_types.GMM_SCALAR
   let ( /. ) = Stdlib.( /. )
 end
 
-module OwlFloatTensor : Adbench_shared.Shared_gmm_types.GMM_TENSOR
+module EvaluateScalar : Shared_gmm_types.GMM_SCALAR
+  with type t = Evaluate.scalar
+= struct
+  include Evaluate
+  type t = Evaluate.scalar
+
+  let float = c
+end
+
+module ReverseEvaluate = Reverse (Evaluate)
+
+module ReverseScalar : Shared_gmm_types.GMM_SCALAR
+  with type t = ReverseEvaluate.scalar
+= struct
+  include ReverseEvaluate
+  type t = ReverseEvaluate.scalar
+
+  let float = c
+end
+
+module OwlFloatTensor : Shared_gmm_types.GMM_TENSOR
   with type t = (float, Bigarray.float64_elt) Owl.Dense.Ndarray.Generic.t
   with type scalar = float
 = struct
@@ -33,8 +55,8 @@ module OwlFloatTensor : Adbench_shared.Shared_gmm_types.GMM_TENSOR
   let get_slice = get_slice
   let slice_left = slice_left
   let get = get
-  let mv_inplace a x y =
-    Owl_cblas.gemv ~trans:false ~incx:1 ~incy:1 ~alpha:1.0 ~beta:0.0
+  let mv_inplace ?trans a x y =
+    Owl_cblas.gemv ?trans ~incx:1 ~incy:1 ~alpha:1.0 ~beta:0.0
                    ~a:a ~x:x ~y:y
   let exp = exp
   let add = add
@@ -43,8 +65,40 @@ module OwlFloatTensor : Adbench_shared.Shared_gmm_types.GMM_TENSOR
   let sum_reduce = sum_reduce
   let log_sum_exp = log_sum_exp
   let scalar_mul = scalar_mul
-  let pow_scalar = pow_scalar
   let sub_scalar = sub_scalar
+  let pow_const = pow_scalar
+end
+
+module EvaluateTensor : Shared_gmm_types.GMM_TENSOR
+  with type t = Evaluate.tensor
+  with type scalar = Evaluate.scalar
+= struct
+  include Evaluate
+  type t = Evaluate.tensor
+  type scalar = Evaluate.scalar
+
+  let tensor x = x
+  let add = ( + )
+  let sub = ( - )
+  let mul = ( * )
+end
+
+module ReverseTensor : Shared_gmm_types.GMM_TENSOR
+  with type t = ReverseEvaluate.tensor
+  with type scalar = ReverseEvaluate.scalar
+= struct
+  include ReverseEvaluate
+  type t = ReverseEvaluate.tensor
+  type scalar = ReverseEvaluate.scalar
+
+  let tensor x = {
+    v = x;
+    dv = Evaluate.zeros (Owl.Dense.Ndarray.Generic.shape x)
+  }
+  let create ia f = create ia (Evaluate.c f)
+  let add = ( + )
+  let sub = ( - )
+  let mul = ( * )
 end
 
 module GMMTest () : Shared_test_interface.TEST
@@ -70,25 +124,43 @@ module GMMTest () : Shared_test_interface.TEST
     input := Some input'
   let calculate_objective times =
     let module Objective =
-      Shared_gmm_objective.Make (FloatScalar) (OwlFloatTensor)
+      Shared_gmm_objective.Make (EvaluateScalar) (EvaluateTensor)
     in
     match !input with
       | None -> ()
       | Some param ->
         for _ = 1 to times do
-          objective := Objective.gmm_objective param
+          objective :=
+            Effect.Deep.match_with
+              Objective.gmm_objective
+              param
+              Evaluate.evaluate
         done
   let calculate_jacobian times =
     let module Objective =
-      Shared_gmm_objective.Make (FloatScalar) (OwlFloatTensor)
+      Shared_gmm_objective.Make (ReverseScalar) (ReverseTensor)
     in
     match !input with
       | None -> ()
       | Some param ->
         for _ = 1 to times do
-          objective := Objective.gmm_objective param;
-          objective := Objective.gmm_objective param;
-          objective := Objective.gmm_objective param
+          let grads = Effect.Deep.match_with (fun p ->
+            ReverseEvaluate.grad (fun ta ->
+              let (alphas, means, icfs) = (ta.(0), ta.(1), ta.(2)) in
+              Objective.gmm_objective
+                { alphas = alphas;
+                  means = means;
+                  icfs = icfs;
+                  x = ReverseTensor.tensor param.x;
+                  wishart = {
+                    gamma = ReverseScalar.float param.wishart.gamma;
+                    m = param.wishart.m
+                  }
+                }
+            ) p
+          ) [|param.alphas; param.means; param.icfs|] Evaluate.evaluate in
+          let flattened = Array.map flatten grads in
+          gradient := concatenate flattened
         done
   let output _ =
     {

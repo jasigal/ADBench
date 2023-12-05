@@ -104,8 +104,8 @@ module Reverse (T : SMOOTH) = struct
     )
   }
 
-  (* let grad f x =
-    let r = {v = x; dv = T.c 0.0} in
-    match_with (fun x -> (f x).dv <- T.c 1.0) r reverse;
-    r.dv *)
+  let grad f ta =
+    let ra = Array.map (fun t -> {v = t; dv = T.(create (shape t) 0.0)}) ta in
+    match_with (fun ta -> (f ta).dv <- T.c 1.0) ra reverse;
+    Array.map (fun r -> r.dv) ra
 end
