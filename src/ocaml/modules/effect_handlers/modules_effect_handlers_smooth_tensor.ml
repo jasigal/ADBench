@@ -225,30 +225,16 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
     | Zeros ia -> zeros ia
     | Create (ia, f) -> create ia f
   let op_t_to_t (o : t_to_t) t = match o with
-    | Squeeze iao -> (match iao with
-      | None -> squeeze t
-      | Some ia -> squeeze ~axis:ia t
-      )
+    | Squeeze iao -> squeeze ?axis:iao t
     | Reshape d -> reshape t d
     | GetSlice ill -> get_slice ill t
     | SliceLeft ia -> slice_left t ia
-    | Transpose iao -> (match iao with
-      | None -> transpose t
-      | Some ia -> transpose ~axis:ia t
-      )
+    | Transpose iao -> transpose ?axis:iao t
     | Exp -> exp t
     | Negate -> ~- t
     | PowerConst f -> pow_const t f
-    | SumReduce iao -> (match iao with
-      | None -> sum_reduce t
-      | Some ia -> sum_reduce ~axis:ia t
-      )
-    | LogSumExp (io, bo) -> (match (io, bo) with
-      | (None, None) -> log_sum_exp t
-      | (Some i, None) -> log_sum_exp ~axis:i t
-      | (None, Some b) -> log_sum_exp ~keep_dims:b t
-      | (Some i, Some b) -> log_sum_exp ~axis:i ~keep_dims:b t
-      )
+    | SumReduce iao -> sum_reduce ?axis:iao t
+    | LogSumExp (io, bo) -> log_sum_exp ?axis:io ?keep_dims:bo t
   let op_t_in_t (o : t_in_t) t1 t2 = match o with
     | SetSlice ill -> set_slice ill t1 t2
   let op_t't_to_t (o : t't_to_t) t1 t2 = match o with
@@ -256,10 +242,7 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
     | Subtract -> t1 - t2
     | Multiply -> t1 * t2
   let op_t't_in_t (o : t't_in_t) a x y = match o with
-    | MVInplace bo -> (match bo with
-      | None -> mv_inplace a x y
-      | Some b -> mv_inplace ~trans:b a x y
-      )
+    | MVInplace bo -> mv_inplace ?trans:bo a x y
 
   let op_t_to_s (o : t_to_s) t = match o with
     | Get ia -> get t ia
@@ -268,14 +251,8 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
     | ScalarMultiply -> scalar_mul s t
     | SubtractScalar -> sub_scalar t s
   let op_ta_to_t (o : ta_to_t) ta = match o with
-    | Concatenate io -> (match io with
-      | None -> concatenate ta
-      | Some i -> concatenate ~axis:i ta
-      )
-    | Stack io -> (match io with
-      | None -> stack ta
-      | Some i -> stack ~axis:i ta
-      )
+    | Concatenate io ->  concatenate ?axis:io ta
+    | Stack io -> stack ?axis:io ta
 
   let der_s_to_s (o : s_to_s) s = match o with
     | Negate -> fun sd -> ~. sd
