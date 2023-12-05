@@ -56,7 +56,7 @@ module Evaluate = struct
             | LogSumExp (io, bo) ->
               continue k T.(log_sum_exp ?axis:io ?keep_dims:bo t)
         )
-      | Ap_t_in_t (o, tin, tout) -> Some (fun k ->
+      | Ap_t_in_t (o, tout, tin) -> Some (fun k ->
           match o with
             | SetSlice ill -> continue k T.(set_slice ill tout tin)
         )

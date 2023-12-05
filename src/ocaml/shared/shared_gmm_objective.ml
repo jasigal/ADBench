@@ -99,11 +99,15 @@ module Make
     let xshape = shape param.x in
     let n = xshape.(0) in
     let d = xshape.(1) in
+    let k = (shape param.means).(0) in
 
     let qdiags = exp (get_slice [[]; [0; Stdlib.(d - 1)]] param.icfs) in
+    let sqdiags = stack (Array.make n qdiags) in
     let sum_qs = squeeze (
       sum_reduce ~axis:[|1|] (get_slice [[]; [0; Stdlib.(d - 1)]] param.icfs)
     ) in
+    (* Prevent implicit broadcasting *)
+    let ssum_qs = stack (Array.make n sum_qs) in
 
     let icf_sz = (shape param.icfs).(0) in
     let ls = stack (Array.init icf_sz (fun i ->
@@ -111,14 +115,19 @@ module Make
     ) in
 
     let xcentered = squeeze (stack (Array.init n (fun i ->
-      (slice_left param.x [|i|]) - param.means
+      let sx = slice_left param.x [|i|] in
+      (* Prevent implicit broadcasting *)
+      let ssx = stack (Array.make k sx) in
+      ssx - param.means
     ))) in
-    let lxcentered = qtimesx qdiags ls xcentered in
+    let lxcentered = qtimesx sqdiags ls xcentered in
     let sqsum_lxcentered = squeeze (
       sum_reduce ~axis:[|2|] (pow_const lxcentered 2.0)
     ) in
+    let salphas = stack (Array.make n param.alphas) in
+    (* Prevent implicit broadcasting *)
     let inner_term =
-      param.alphas + sum_qs - (scalar_mul (S.float 0.5) sqsum_lxcentered)
+      salphas + ssum_qs - (scalar_mul (S.float 0.5) sqsum_lxcentered)
     in
     (* Uses the stable version as in the paper, i.e. max-shifted *)
     let lse = squeeze (log_sum_exp ~axis:1 inner_term) in

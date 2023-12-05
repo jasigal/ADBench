@@ -127,6 +127,30 @@ module type SMOOTH = sig
   val der_t_to_ta : t_to_ta -> tensor -> (tensor array -> tensor)
 end
 
+let string_of_t_to_t (o : t_to_t) = match o with
+  | Squeeze _iao -> "squeeze"
+  | Reshape _d -> "reshape"
+  | GetSlice _ill -> "get_slice"
+  | SliceLeft _ia -> "slice_left"
+  | Transpose _iao -> "transpose"
+  | Exp -> "exp"
+  | Negate -> "negate"
+  | PowerConst _f -> "pow_const"
+  | SumReduce _iao -> "sum_reduce"
+  | LogSumExp (_io, _bo) -> "log_sum_exp"
+
+let print_ill ill =
+  print_string "[";
+  List.iter (fun il ->
+    print_string "[";
+    List.iter (fun i ->
+      print_int i;
+      print_string ", "
+    ) il;
+    print_string "], "
+  ) ill;
+  print_string "]"
+
 module type SMOOTH_NON_DIFF = sig
   type scalar
   type tensor
@@ -190,18 +214,11 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
   let scalar_mul s t = perform (Ap_s't_to_t (ScalarMultiply, s ,t))
   let sub_scalar t s = perform (Ap_s't_to_t (SubtractScalar, s ,t))
 
-  (* Simple expand operation.
-     Requires:
-      - length (shape t) = length ia
-      - for each 0 <= j < length (shape t), t[j] = ia[j] or t[j] = 1
-  *)
-  let _expand t ia =
+  (* Simple expand operation. ia contains which axes to expand. *)
+  let _expand t shp ia =
     let res = ref t in
     for j = 0 to Stdlib.(Array.length ia - 1) do
-      if (shape t).(j) == ia.(j)
-        then ()
-        else
-          res := concatenate ~axis:j (Array.make ia.(j) !res)
+      res := concatenate ~axis:(ia.(j)) (Array.make shp.(ia.(j)) !res)
     done;
     !res
 
@@ -279,7 +296,9 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
     | SliceLeft ia -> fun td ->
       let res = zeros (shape t) in
       let ill = Array.to_list (Array.map (fun i -> [i]) ia) in
-      set_slice ill res td;
+      let shp = Array.(append (make (length ia) 1) (shape td)) in
+      let tdr = reshape td shp in
+      set_slice ill res tdr;
       res
     | Transpose iao ->
       let ia = match iao with
@@ -295,10 +314,10 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
       scalar_mul (c f) (td * pow_const t Stdlib.(f -. 1.0))
     | SumReduce iao ->
       let ia = (match iao with
-        | None -> shape t
+        | None -> Array.init (Array.length (shape t)) (fun i -> i) 
         | Some ia -> ia
       ) in
-      fun td -> _expand td ia
+      fun td -> _expand td (shape t) ia
     | LogSumExp (io, bo) -> (
       let (i, b) = match (io, bo) with
         | (None, None) -> (0, true)
@@ -330,18 +349,21 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
       in
       (* a is a matrx, x is a vector *)
       (fun td ->
-        let (ad, xd) = (zeros (shape a), zeros (shape x)) in
-        let xm = reshape x [|(shape x).(0); 1|] in
-        mv_inplace ~trans:(not b) td (transpose ~axis:[|1;0|] xm) ad;
-        mv_inplace ~trans:(not b) a td ad;
-        (ad, xd)
+        let xd = zeros (shape x) in
+        let tdm = reshape td [|(shape td).(0); 1|] in
+        let xm = reshape xd [|1; (shape xd).(0)|] in
+        (* outer product of td and x^T, stored in ad*)
+        let ad = tdm * xm in
+        let adt = if b then transpose ~axis:[|1;0|] ad else ad in
+        mv_inplace ~trans:(not b) a td xd;
+        (adt, xd)
       )
   let der_t_to_s (o : t_to_s) t = match o with
     | Get ia ->
       let ill = Array.to_list (Array.map (fun i -> [i]) ia) in
       (fun sd ->
         let td = (zeros (shape t)) in
-        set_slice ill td (scalar_mul sd (create [||] 1.0));
+        set_slice ill td (scalar_mul sd (create [|1|] 1.0));
         td
       )
     | Sum -> fun sd -> scalar_mul sd (create (shape t) 1.0)
