@@ -111,6 +111,7 @@ module type SMOOTH = sig
   val op_t_to_s : t_to_s -> tensor -> scalar
   val op_s't_to_t : s't_to_t -> scalar -> tensor -> tensor
   val op_ta_to_t : ta_to_t -> tensor array -> tensor
+  val op_t_to_ta : t_to_ta -> tensor -> tensor array
 
   val der_s_to_s : s_to_s -> scalar -> (scalar -> scalar)
   val der_s's_to_s : s's_to_s -> scalar -> scalar -> (scalar -> scalar * scalar)
@@ -133,7 +134,10 @@ module type SMOOTH_NON_DIFF = sig
   val shape : tensor -> int array
 end
 
-module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with type tensor = T.tensor = struct
+module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
+  with type scalar = T.scalar
+  with type tensor = T.tensor
+= struct
   include T
   
   type scalar = T.scalar
@@ -253,6 +257,8 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH with type scalar = T.scalar with ty
   let op_ta_to_t (o : ta_to_t) ta = match o with
     | Concatenate io ->  concatenate ?axis:io ta
     | Stack io -> stack ?axis:io ta
+  let op_t_to_ta (o : t_to_ta) t = match o with
+    | Split (io, ia) -> split ?axis:io ia t
 
   let der_s_to_s (o : s_to_s) s = match o with
     | Negate -> fun sd -> ~. sd
