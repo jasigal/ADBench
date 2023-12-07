@@ -349,12 +349,12 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
       in
       (* a is a matrx, x is a vector *)
       (fun td ->
-        let xd = zeros (shape x) in
         let tdm = reshape td [|(shape td).(0); 1|] in
-        let xm = reshape xd [|1; (shape xd).(0)|] in
+        let xm = reshape x [|1; (shape x).(0)|] in
         (* outer product of td and x^T, stored in ad*)
         let ad = tdm * xm in
         let adt = if b then transpose ~axis:[|1;0|] ad else ad in
+        let xd = zeros (shape x) in
         mv_inplace ~trans:(not b) a td xd;
         (adt, xd)
       )
@@ -363,7 +363,8 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
       let ill = Array.to_list (Array.map (fun i -> [i]) ia) in
       (fun sd ->
         let td = (zeros (shape t)) in
-        set_slice ill td (scalar_mul sd (create [|1|] 1.0));
+        let ones = Array.(make (length (shape t)) 1) in
+        set_slice ill td (scalar_mul sd (create ones 1.0));
         td
       )
     | Sum -> fun sd -> scalar_mul sd (create (shape t) 1.0)
