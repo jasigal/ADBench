@@ -126,8 +126,8 @@ module Make
     let sqsum_lxcentered = squeeze (
       sum_reduce ~axis:[|2|] (pow_const lxcentered 2.0)
     ) in
-    let salphas = stack (Array.make n param.alphas) in
     (* Prevent implicit broadcasting *)
+    let salphas = stack (Array.make n param.alphas) in
     let inner_term =
       salphas + ssum_qs - (scalar_mul (S.float 0.5) sqsum_lxcentered)
     in
