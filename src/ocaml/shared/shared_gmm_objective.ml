@@ -47,17 +47,19 @@ module Make
     stack ~axis:1 columns
 
   let qtimesx qdiag l x =
-    let y = zeros (shape x) in
+    let yis = ref [] in
     for i = 0 to Stdlib.((shape x).(0) - 1) do
+      let yjs = ref [] in
       for j = 0 to Stdlib.((shape x).(1) - 1) do
         (* Slice left are views, i.e. memory is shared. *)
-        let sl = (squeeze (slice_left l [|j|])) in
-        let sx = (squeeze (slice_left x [|i; j|])) in
-        let sy = (squeeze (slice_left y [|i; j|])) in
-        (* The result is stored into sy, and so y. *)
-        mv_inplace sl sx sy
+        let sl = (slice_left l [|j|]) in
+        let sx = (slice_left x [|i; j|]) in
+        yjs := mv sl sx :: !yjs
       done;
+      let yi = stack (Array.of_list (List.rev !yjs)) in
+      yis := yi :: !yis
     done;
+    let y = stack (Array.of_list (List.rev !yis)) in
     (qdiag * x) + y
 
   let log_gamma_distrib a p =

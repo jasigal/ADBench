@@ -55,9 +55,11 @@ module OwlFloatTensor : Shared_gmm_types.GMM_TENSOR
   let get_slice = get_slice
   let slice_left = slice_left
   let get = get
-  let mv_inplace ?trans a x y =
+  let mv ?trans a x =
+    let out = empty Bigarray.Float64 [|(shape a).(0)|] in
     Owl_cblas.gemv ?trans ~incx:1 ~incy:1 ~alpha:1.0 ~beta:0.0
-                   ~a:a ~x:x ~y:y
+                   ~a:a ~x:x ~y:out;
+    out
   let exp = exp
   let add = add
   let sub = sub

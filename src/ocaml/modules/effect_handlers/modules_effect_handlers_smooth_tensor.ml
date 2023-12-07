@@ -16,9 +16,12 @@ type t_to_t
   | PowerConst of float
   | SumReduce of int array option
   | LogSumExp of int option * bool option
-type t_in_t = SetSlice of int list list
-type t't_to_t = Add | Subtract | Multiply
-type t't_in_t = MVInplace of bool option
+type t't_to_t
+  = Add
+  | Subtract
+  | Multiply
+  | MV of bool option
+  | SetSlice of int list list
 
 type t_to_s = Get of int array | Sum
 type s't_to_t = ScalarMultiply | SubtractScalar
@@ -36,9 +39,7 @@ module type SMOOTH = sig
     | Ap_s's_to_s : s's_to_s * scalar * scalar -> scalar Effect.t
     | Ap_u_to_t : u_to_t -> tensor Effect.t
     | Ap_t_to_t : t_to_t * tensor -> tensor Effect.t
-    | Ap_t_in_t : t_in_t * tensor * tensor -> unit Effect.t
     | Ap_t't_to_t : t't_to_t * tensor * tensor -> tensor Effect.t
-    | Ap_t't_in_t : t't_in_t * tensor * tensor * tensor -> unit Effect.t
     | Ap_t_to_s : t_to_s * tensor -> scalar Effect.t
     | Ap_s't_to_t : s't_to_t * scalar * tensor -> tensor Effect.t
     | Ap_ta_to_t : ta_to_t * tensor array -> tensor Effect.t
@@ -66,6 +67,7 @@ module type SMOOTH = sig
   (* Splitting tensors *)
   val split : ?axis:int -> int array -> tensor -> tensor array
 
+  (* Changing tensor shape *)
   val transpose : ?axis:int array -> tensor -> tensor
   val reshape : tensor -> int array -> tensor
 
@@ -74,12 +76,10 @@ module type SMOOTH = sig
   val get_slice : int list list -> tensor -> tensor
   val slice_left : tensor -> int array -> tensor
   val get : tensor -> int array -> scalar
-
-  (* Changing in place *)
-  val set_slice : int list list -> tensor -> tensor -> unit
+  val set_slice : int list list -> tensor -> tensor -> tensor
 
   (* Matrix-vector multiplication *)
-  val mv_inplace : ?trans:bool -> tensor -> tensor -> tensor -> unit
+  val mv : ?trans:bool -> tensor -> tensor -> tensor
 
   (* Pointwise tensor operations *)
   val exp : tensor -> tensor
@@ -104,9 +104,7 @@ module type SMOOTH = sig
 
   val op_u_to_t : u_to_t -> tensor
   val op_t_to_t : t_to_t -> tensor -> tensor
-  val op_t_in_t : t_in_t -> tensor -> tensor -> unit
   val op_t't_to_t : t't_to_t -> tensor -> tensor -> tensor
-  val op_t't_in_t : t't_in_t -> tensor -> tensor -> tensor -> unit
 
   val op_t_to_s : t_to_s -> tensor -> scalar
   val op_s't_to_t : s't_to_t -> scalar -> tensor -> tensor
@@ -117,9 +115,7 @@ module type SMOOTH = sig
   val der_s's_to_s : s's_to_s -> scalar -> scalar -> (scalar -> scalar * scalar)
 
   val der_t_to_t : t_to_t -> tensor -> (tensor -> tensor)
-  val der_t_in_t : t_in_t -> tensor -> (tensor -> tensor)
   val der_t't_to_t : t't_to_t -> tensor -> tensor -> (tensor -> tensor * tensor)
-  val der_t't_in_t : t't_in_t -> tensor -> tensor -> (tensor -> tensor * tensor)
   
   val der_t_to_s : t_to_s -> tensor -> (scalar -> tensor)
   val der_s't_to_t : s't_to_t -> scalar -> tensor -> (tensor -> scalar * tensor)
@@ -172,9 +168,7 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
     | Ap_s's_to_s : s's_to_s * scalar * scalar -> scalar Effect.t
     | Ap_u_to_t : u_to_t -> tensor Effect.t
     | Ap_t_to_t : t_to_t * tensor -> tensor Effect.t
-    | Ap_t_in_t : t_in_t * tensor * tensor -> unit Effect.t
     | Ap_t't_to_t : t't_to_t * tensor * tensor -> tensor Effect.t
-    | Ap_t't_in_t : t't_in_t * tensor * tensor * tensor -> unit Effect.t
     | Ap_t_to_s : t_to_s * tensor -> scalar Effect.t
     | Ap_s't_to_t : s't_to_t * scalar * tensor -> tensor Effect.t
     | Ap_ta_to_t : ta_to_t * tensor array -> tensor Effect.t
@@ -199,8 +193,8 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
   let get_slice ill t = perform (Ap_t_to_t (GetSlice ill, t))
   let slice_left t ia = perform (Ap_t_to_t (SliceLeft ia, t))
   let get t ia = perform (Ap_t_to_s (Get ia, t))
-  let set_slice ill t1 t2 = perform (Ap_t_in_t (SetSlice ill, t1, t2))
-  let mv_inplace ?trans a x y = perform (Ap_t't_in_t (MVInplace trans, a, x, y))
+  let set_slice ill t1 t2 = perform (Ap_t't_to_t (SetSlice ill, t1, t2))
+  let mv ?trans a x = perform (Ap_t't_to_t (MV trans, a, x))
   let exp t = perform (Ap_t_to_t (Exp, t))
   let ( ~- ) t = perform (Ap_t_to_t (Negate, t))
   let pow_const t f = perform (Ap_t_to_t (PowerConst f,t))
@@ -256,14 +250,12 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
     | PowerConst f -> pow_const t f
     | SumReduce iao -> sum_reduce ?axis:iao t
     | LogSumExp (io, bo) -> log_sum_exp ?axis:io ?keep_dims:bo t
-  let op_t_in_t (o : t_in_t) t1 t2 = match o with
-    | SetSlice ill -> set_slice ill t1 t2
   let op_t't_to_t (o : t't_to_t) t1 t2 = match o with
     | Add -> t1 + t2
     | Subtract -> t1 - t2
     | Multiply -> t1 * t2
-  let op_t't_in_t (o : t't_in_t) a x y = match o with
-    | MVInplace bo -> mv_inplace ?trans:bo a x y
+    | MV bo -> mv ?trans:bo t1 t2
+    | SetSlice ill -> set_slice ill t1 t2
 
   let op_t_to_s (o : t_to_s) t = match o with
     | Get ia -> get t ia
@@ -289,17 +281,12 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
   let der_t_to_t (o : t_to_t) t = match o with
     | Squeeze _ -> fun td -> reshape td (shape t)
     | Reshape _ -> fun td -> reshape td (shape t)
-    | GetSlice ill -> fun td ->
-      let res = zeros (shape t) in
-      set_slice ill res td;
-      res
+    | GetSlice ill -> fun td -> set_slice ill (zeros (shape t)) td
     | SliceLeft ia -> fun td ->
-      let res = zeros (shape t) in
       let ill = Array.to_list (Array.map (fun i -> [i]) ia) in
       let shp = Array.(append (make (length ia) 1) (shape td)) in
       let tdr = reshape td shp in
-      set_slice ill res tdr;
-      res
+      set_slice ill (zeros (shape t)) tdr
     | Transpose iao ->
       let ia = match iao with
         | None ->
@@ -332,40 +319,35 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
           shp.(i) <- 1;
           (reshape td shp) * (t - (reshape (log_sum_exp t) shp))
     )
-
-  let der_t_in_t (o : t_in_t) _ = match o with
-    | SetSlice ill -> fun td -> get_slice ill td
-
   let der_t't_to_t (o : t't_to_t) t1 t2 = match o with
     | Add -> fun td -> (td, td)
     | Subtract -> fun td -> (td, ~- td)
     | Multiply -> fun td -> (t2 * td, t1 * td)
-
-  let der_t't_in_t (o : t't_in_t) a x = match o with
-    | MVInplace bo ->
+    | SetSlice ill -> fun td ->
+      (set_slice ill td (zeros (shape t2)), get_slice ill td)
+    | MV bo ->
       let b = match bo with
         | None -> false
         | Some b -> b
       in
       (* a is a matrx, x is a vector *)
+      let (a, x) = (t1, t2) in
       (fun td ->
         let tdm = reshape td [|(shape td).(0); 1|] in
         let xm = reshape x [|1; (shape x).(0)|] in
         (* outer product of td and x^T, stored in ad*)
         let ad = tdm * xm in
         let adt = if b then transpose ~axis:[|1;0|] ad else ad in
-        let xd = zeros (shape x) in
-        mv_inplace ~trans:(not b) a td xd;
+        let xd = mv ~trans:(not b) a td in
         (adt, xd)
       )
+
   let der_t_to_s (o : t_to_s) t = match o with
     | Get ia ->
       let ill = Array.to_list (Array.map (fun i -> [i]) ia) in
       (fun sd ->
-        let td = (zeros (shape t)) in
         let ones = Array.(make (length (shape t)) 1) in
-        set_slice ill td (scalar_mul sd (create ones 1.0));
-        td
+        set_slice ill (zeros (shape t)) (scalar_mul sd (create ones 1.0))
       )
     | Sum -> fun sd -> scalar_mul sd (create (shape t) 1.0)
   let der_s't_to_t (o : s't_to_t) s t = match o with

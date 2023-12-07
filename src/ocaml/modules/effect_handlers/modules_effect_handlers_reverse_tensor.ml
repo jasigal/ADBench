@@ -46,12 +46,6 @@ module Reverse (T : SMOOTH) = struct
           continue k r;
           t.dv <- t.dv + (der_t_to_t o t.v r.dv)
         )
-      | Ap_t_in_t (o, tin, tout) -> Some (fun k -> let open T in
-          op_t_in_t o tin.v tout.v;
-          tout.dv <- create (shape tout.v) 0.0;
-          continue k ();
-          tin.dv <- tin.dv + (der_t_in_t o tin.v tout.dv)
-        )
       | Ap_t't_to_t (o, t1, t2) -> Some (fun k -> let open T in
           let v = op_t't_to_t o t1.v t2.v in
           let r = {v = v; dv = create (shape v) 0.0} in
@@ -59,14 +53,6 @@ module Reverse (T : SMOOTH) = struct
           let (dv1, dv2) = der_t't_to_t o t1.v t2.v r.dv in
           t1.dv <- t1.dv + dv1;
           t2.dv <- t2.dv + dv2
-        )
-      | Ap_t't_in_t (o, tin1, tin2, tout) -> Some (fun k -> let open T in
-          op_t't_in_t o tin1.v tin2.v tout.v;
-          tout.dv <- create (shape tout.v) 0.0;
-          continue k ();
-          let (dv1, dv2) = der_t't_in_t o tin1.v tin2.v tout.dv in
-          tin1.dv <- tin1.dv + dv1;
-          tin2.dv <- tin2.dv + dv2;
         )
       | Ap_t_to_s (o, t) -> Some (fun k -> let open T in
           let r = {v = op_t_to_s o t.v; dv = c 0.0} in

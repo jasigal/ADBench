@@ -34,7 +34,7 @@ module type GMM_TENSOR = sig
   val get : t -> int array -> scalar
 
   (* Matrix-vector multiplication *)
-  val mv_inplace : ?trans:bool -> t -> t -> t -> unit
+  val mv : ?trans:bool -> t -> t -> t
 
   (* Pointwise tensor operations *)
   val exp : t -> t

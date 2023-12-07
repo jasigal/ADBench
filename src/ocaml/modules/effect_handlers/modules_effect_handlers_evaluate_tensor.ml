@@ -56,23 +56,20 @@ module Evaluate = struct
             | LogSumExp (io, bo) ->
               continue k T.(log_sum_exp ?axis:io ?keep_dims:bo t)
         )
-      | Ap_t_in_t (o, tout, tin) -> Some (fun k ->
-          match o with
-            | SetSlice ill -> continue k T.(set_slice ill tout tin)
-        )
       | Ap_t't_to_t (o, t1, t2) -> Some (fun k ->
           match o with
             | Add -> continue k T.(t1 + t2)
             | Subtract -> continue k T.(t1 - t2)
             | Multiply -> continue k T.(t1 * t2)
-        )
-      | Ap_t't_in_t (o, tin1, tin2, tout) -> Some (fun k ->
-          match o with
-            | MVInplace bo ->
-                continue k Owl.Cblas.(
-                  gemv ?trans:bo ~incx:1 ~incy:1 ~alpha:1.0 ~beta:0.0 
-                       ~a:tin1 ~x:tin2 ~y:tout
-                )
+            | MV bo ->
+              let tout = T.empty Bigarray.Float64 [|(shape t1).(0)|] in
+              Owl.Cblas.gemv ?trans:bo ~incx:1 ~incy:1 ~alpha:1.0 ~beta:0.0 
+                             ~a:t1 ~x:t2 ~y:tout;
+              continue k tout
+            | SetSlice ill ->
+              let tout = T.copy t1 in
+              T.set_slice ill tout t2;
+              continue k tout
         )
       | Ap_t_to_s (o, t) -> Some (fun k ->
           match o with
