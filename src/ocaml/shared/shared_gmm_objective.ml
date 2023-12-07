@@ -52,8 +52,8 @@ module Make
       let yjs = ref [] in
       for j = 0 to Stdlib.((shape x).(1) - 1) do
         (* Slice left are views, i.e. memory is shared. *)
-        let sl = (slice_left l [|j|]) in
-        let sx = (slice_left x [|i; j|]) in
+        let sl = slice_left l [|j|] in
+        let sx = slice_left x [|i; j|] in
         yjs := mv sl sx :: !yjs
       done;
       let yi = stack (Array.of_list (List.rev !yjs)) in
@@ -113,7 +113,7 @@ module Make
 
     let icf_sz = (shape param.icfs).(0) in
     let ls = stack (Array.init icf_sz (fun i ->
-      constructl d (squeeze (slice_left param.icfs [|i|])))
+      constructl d (slice_left param.icfs [|i|]))
     ) in
 
     let xcentered = squeeze (stack (Array.init n (fun i ->

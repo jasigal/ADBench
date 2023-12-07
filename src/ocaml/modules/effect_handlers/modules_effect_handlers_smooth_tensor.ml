@@ -20,6 +20,7 @@ type t't_to_t
   = Add
   | Subtract
   | Multiply
+  | Divide
   | MV of bool option
   | SetSlice of int list list
 
@@ -88,7 +89,8 @@ module type SMOOTH = sig
   val ( + ) : tensor -> tensor -> tensor
   val ( - ) : tensor -> tensor -> tensor
   val ( * ) : tensor -> tensor -> tensor
-
+  val ( / ) : tensor -> tensor -> tensor
+  
   (* Reduction operations *)
   val sum : tensor -> scalar
   val sum_reduce : ?axis:int array -> tensor -> tensor
@@ -201,6 +203,7 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
   let ( + ) t1 t2 = perform (Ap_t't_to_t (Add, t1, t2))
   let ( - ) t1 t2 = perform (Ap_t't_to_t (Subtract, t1, t2))
   let ( * ) t1 t2 = perform (Ap_t't_to_t (Multiply, t1, t2))
+  let ( / ) t1 t2 = perform (Ap_t't_to_t (Divide, t1, t2))
   let sum t = perform (Ap_t_to_s (Sum, t))
   let sum_reduce ?axis t = perform (Ap_t_to_t (SumReduce axis, t))
   let log_sum_exp ?axis ?keep_dims t =
@@ -254,6 +257,7 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
     | Add -> t1 + t2
     | Subtract -> t1 - t2
     | Multiply -> t1 * t2
+    | Divide -> t1 / t2
     | MV bo -> mv ?trans:bo t1 t2
     | SetSlice ill -> set_slice ill t1 t2
 
@@ -313,16 +317,20 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
         | (Some i, Some b) -> (i, b)
       in
       if b
-        then fun td -> td * exp (t - log_sum_exp t)
+        then fun td ->
+          let et = exp t in
+          td * (et / sum_reduce ~axis:[|i|] et)
         else fun td ->
           let shp = shape t in
           shp.(i) <- 1;
-          (reshape td shp) * (t - (reshape (log_sum_exp t) shp))
+          let et = exp t in
+          (reshape td shp) * (et / sum_reduce ~axis:[|i|] et)
     )
   let der_t't_to_t (o : t't_to_t) t1 t2 = match o with
     | Add -> fun td -> (td, td)
     | Subtract -> fun td -> (td, ~- td)
     | Multiply -> fun td -> (t2 * td, t1 * td)
+    | Divide -> fun td -> (td / t2, (td * (~- t1)) / (t2 * t2))
     | SetSlice ill -> fun td ->
       (set_slice ill td (zeros (shape t2)), get_slice ill td)
     | MV bo ->

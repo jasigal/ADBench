@@ -61,6 +61,7 @@ module Evaluate = struct
             | Add -> continue k T.(t1 + t2)
             | Subtract -> continue k T.(t1 - t2)
             | Multiply -> continue k T.(t1 * t2)
+            | Divide -> continue k T.(t1 / t2)
             | MV bo ->
               let tout = T.empty Bigarray.Float64 [|(shape t1).(0)|] in
               Owl.Cblas.gemv ?trans:bo ~incx:1 ~incy:1 ~alpha:1.0 ~beta:0.0 
