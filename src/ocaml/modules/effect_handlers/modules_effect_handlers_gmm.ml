@@ -121,6 +121,7 @@ module GMMTest () : Shared_test_interface.TEST
   let input = ref None
   let objective = ref 0.0
   let gradient = ref (zeros Bigarray.Float64 [|0|])
+  let _grads = ref (Array.init 3 (fun _ -> zeros Bigarray.Float64 [|0|]))
 
   let prepare input' =
     input := Some input'
@@ -161,10 +162,11 @@ module GMMTest () : Shared_test_interface.TEST
                 }
             ) p
           ) [|param.alphas; param.means; param.icfs|] Evaluate.evaluate in
-          let flattened = Array.map flatten grads in
-          gradient := concatenate flattened
+          _grads := grads
         done
   let output _ =
+    let flattened = Array.map flatten !_grads in
+    gradient := concatenate flattened;
     {
       Shared_gmm_data.objective = !objective;
       Shared_gmm_data.gradient = !gradient

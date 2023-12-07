@@ -7,6 +7,11 @@ let usage_msg = format_of_string (
 (* ./run-all.ps1 -buildtype "Release" -minimum_measurable_time 0.5 -nruns_f 10 -nruns_J 10 -time_limit 180 -timeout 600 -tmpdir "/adb/temp" -tools @("OCaml") -gmm_d_vals_param @(2,5) *)
 
 let () =
+  (* Increase the minor heap size to 200M to stop quadratic behaviour in
+     reverse mode due to deep callstack.
+  *)
+  Gc.set { (Gc.get ()) with Gc.minor_heap_size = 209715200};
+
   if Array.length Sys.argv < 9 then begin
     Printf.eprintf usage_msg Sys.argv.(0);
     exit 1
