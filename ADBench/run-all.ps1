@@ -710,7 +710,7 @@ $tool_descriptors = @(
     [Tool]::new("Autograd", "py", [ObjectiveType] "GMM, BA", $false, 0.0, $true, $false)
     [Tool]::new("Julia", "julia_tool", [ObjectiveType] "GMM, BA", $false, 0.0)
     [Tool]::new("Zygote", "julia", [ObjectiveType] "GMM, BA, Hand, LSTM", $true, $default_tolerance)
-    [Tool]::new("OCaml", "ocaml", [ObjectiveType] "GMM", $false, 0.0)
+    [Tool]::new("OCaml", "ocaml", [ObjectiveType] "GMM", $true, $default_tolerance)
     #[Tool]::new("Theano", "pybat", [ObjectiveType] "GMM, BA, Hand", $false, 0.0)
     #[Tool]::new("MuPad", "matlab", 0, $false, 0.0)
     #[Tool]::new("ADiMat", "matlab", 0, $false, 0.0)
