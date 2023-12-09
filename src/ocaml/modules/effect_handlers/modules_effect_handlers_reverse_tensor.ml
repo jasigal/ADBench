@@ -11,6 +11,7 @@ module Reverse_Non_Diff (T : SMOOTH_NON_DIFF) : SMOOTH_NON_DIFF
   type tensor = T.tensor prop
 
   let shape t = T.shape t.v
+  let max ?axis t = fun z -> {v = T.max ?axis t.v (z.v); dv = z.dv}
 end
 
 module Reverse (T : SMOOTH) = struct

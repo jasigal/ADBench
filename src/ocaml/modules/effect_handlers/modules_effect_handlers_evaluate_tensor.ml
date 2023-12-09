@@ -9,6 +9,7 @@ module Evaluate_Non_Diff : SMOOTH_NON_DIFF
   type tensor = (float, Bigarray.float64_elt) Owl.Dense.Ndarray.Generic.t
   
   let shape = Owl.Dense.Ndarray.Generic.shape
+  let max ?axis t = fun _ -> Owl.Dense.Ndarray.Generic.max ?axis t
 end
 
 module T = Owl.Dense.Ndarray.Generic

@@ -58,6 +58,7 @@ module type SMOOTH = sig
 
   (* Non-differentiable operations *)
   val shape : tensor -> int array
+  val max : ?axis:int -> tensor -> (tensor -> tensor)
 
   (* Creating constant tensors *)
   val zeros : int array -> tensor
@@ -158,6 +159,7 @@ module type SMOOTH_NON_DIFF = sig
   type tensor
   
   val shape : tensor -> int array
+  val max : ?axis:int -> tensor -> (tensor -> tensor)
 end
 
 module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
@@ -329,12 +331,12 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
       in
       if b
         then fun td ->
-          let et = exp t in
+          let et = exp (t - max t (zeros (shape t))) in
           td * (et / sum_reduce ~axis:[|i|] et)
         else fun td ->
           let shp = shape t in
           shp.(i) <- 1;
-          let et = exp t in
+          let et = exp (t - max t (zeros (shape t))) in
           (reshape td shp) * (et / sum_reduce ~axis:[|i|] et)
     )
   let der_t't_to_t (o : t't_to_t) t1 t2 = match o with
