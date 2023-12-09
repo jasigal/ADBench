@@ -16,6 +16,89 @@ module T = Owl.Dense.Ndarray.Generic
 module Evaluate = struct
   include Smooth (Evaluate_Non_Diff)
 
+  let _contract_einsum_ijk_mik_to_mij a x =
+    let open T in
+    let (n, k, d) = ((shape x).(0), (shape x).(1), (shape x).(2)) in
+    get_slice [[]; [0;-1;Stdlib.(k+1)]] (
+      reshape (
+        contract2 [|(2,2)|] x a
+      ) [|n;Stdlib.(k*k);d|]
+    )
+
+  let einsum_ijk_mik_to_mij a x =
+    let open T in
+    let ( - ) = Stdlib.( - ) in
+    let (n, k) = ((shape x).(0), (shape x).(1)) in
+    let y = empty Bigarray.Float64 (shape x) in
+    for i = 0 to n - 1 do
+      for j = 0 to k - 1 do
+        (* Slice left are views, i.e. memory is shared. *)
+        let sa = slice_left a [|j|] in
+        let sx = slice_left x [|i; j|] in
+        let sy = slice_left y [|i; j|] in
+        Owl.Cblas.gemv ~trans:false ~incx:1 ~incy:1 ~alpha:1.0 ~beta:0.0
+                       ~a:sa ~x:sx ~y:sy;
+      done;
+    done;
+    y
+
+  let _contract_einsum_ijk_mij_to_mik a y =
+    let open T in
+    let (n, k, d) = ((shape y).(0), (shape y).(1), (shape y).(2)) in
+    get_slice [[]; [0;-1;Stdlib.(k+1)]] (
+      reshape (
+        transpose ~axis:[|0;1;3;2|] (
+          contract2 [|(2,1)|] y a
+        )
+      ) [|n;Stdlib.(k*k);d|]
+    )
+
+  let einsum_ijk_mij_to_mik a y =
+    let open T in
+    let ( - ) = Stdlib.( - ) in
+    let (n, k) = ((shape y).(0), (shape y).(1)) in
+    let x = empty Bigarray.Float64 (shape y) in
+    let at = transpose ~axis:[|0;2;1|] a in
+    (* ikj,mij -> mik *)
+    for i = 0 to n - 1 do
+      for j = 0 to k - 1 do
+        (* Slice left are views, i.e. memory is shared. *)
+        let sat = slice_left at [|j|] in
+        let sy  = slice_left y  [|i; j|] in
+        let sx  = slice_left x  [|i; j|] in
+        Owl.Cblas.gemv ~trans:false ~incx:1 ~incy:1 ~alpha:1.0 ~beta:0.0
+                      ~a:sat ~x:sy ~y:sx;
+      done;
+    done;
+    x
+
+  let _contract_einsum_mij_mik_to_ijk y x =
+    let open T in
+    let (k, d) = ((shape x).(1), (shape x).(2)) in
+    get_slice [[0;-1;Stdlib.(k+1)]] (
+      reshape (
+        transpose ~axis:[|1;3;0;2|] (
+          contract2 [|(0,0)|] y x
+        )
+      ) [|Stdlib.(k*k);d;d|]
+    )
+
+  let einsum_mij_mik_to_ijk y x =
+    let open T in
+    let ( - ) = Stdlib.( - ) in
+    let (k, d) = ((shape x).(1), (shape x).(2)) in
+    let a = empty Bigarray.Float64 [|k;d;d|] in
+    let yt = transpose ~axis:[|1;2;0|] y in
+    let xt = transpose ~axis:[|1;0;2|] x in
+    for i = 0 to k - 1 do
+      let syt = slice_left yt [|i|] in
+      let sxt = slice_left xt [|i|] in
+      let sa  = slice_left a  [|i|] in
+      Owl.Cblas.gemm ~transa:false ~transb:false ~alpha:1.0 ~beta:0.0
+                      ~a:syt ~b:sxt ~c:sa
+    done;
+    a
+
   let evaluate = {
     retc = (fun x -> x);
     exnc = raise;
@@ -62,11 +145,9 @@ module Evaluate = struct
             | Subtract -> continue k T.(t1 - t2)
             | Multiply -> continue k T.(t1 * t2)
             | Divide -> continue k T.(t1 / t2)
-            | MV bo ->
-              let tout = T.empty Bigarray.Float64 [|(shape t1).(0)|] in
-              Owl.Cblas.gemv ?trans:bo ~incx:1 ~incy:1 ~alpha:1.0 ~beta:0.0 
-                             ~a:t1 ~x:t2 ~y:tout;
-              continue k tout
+            | Einsum_ijk_mik_to_mij -> continue k (einsum_ijk_mik_to_mij t1 t2)
+            | Einsum_ijk_mij_to_mik -> continue k (einsum_ijk_mij_to_mik t1 t2)
+            | Einsum_mij_mik_to_ijk -> continue k (einsum_mij_mik_to_ijk t1 t2)
             | SetSlice ill ->
               let tout = T.copy t1 in
               T.set_slice ill tout t2;

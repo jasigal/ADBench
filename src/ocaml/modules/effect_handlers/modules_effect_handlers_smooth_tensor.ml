@@ -21,7 +21,9 @@ type t't_to_t
   | Subtract
   | Multiply
   | Divide
-  | MV of bool option
+  | Einsum_ijk_mik_to_mij
+  | Einsum_ijk_mij_to_mik
+  | Einsum_mij_mik_to_ijk
   | SetSlice of int list list
 
 type t_to_s = Get of int array | Sum
@@ -79,8 +81,10 @@ module type SMOOTH = sig
   val get : tensor -> int array -> scalar
   val set_slice : int list list -> tensor -> tensor -> tensor
 
-  (* Matrix-vector multiplication *)
-  val mv : ?trans:bool -> tensor -> tensor -> tensor
+  (* Einsum operations *)
+  val einsum_ijk_mik_to_mij : tensor -> tensor -> tensor
+  val einsum_ijk_mij_to_mik : tensor -> tensor -> tensor
+  val einsum_mij_mik_to_ijk : tensor -> tensor -> tensor
 
   (* Pointwise tensor operations *)
   val exp : tensor -> tensor
@@ -196,7 +200,12 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
   let slice_left t ia = perform (Ap_t_to_t (SliceLeft ia, t))
   let get t ia = perform (Ap_t_to_s (Get ia, t))
   let set_slice ill t1 t2 = perform (Ap_t't_to_t (SetSlice ill, t1, t2))
-  let mv ?trans a x = perform (Ap_t't_to_t (MV trans, a, x))
+  let einsum_ijk_mik_to_mij a x =
+    perform (Ap_t't_to_t (Einsum_ijk_mik_to_mij, a, x))
+  let einsum_ijk_mij_to_mik a y =
+    perform (Ap_t't_to_t (Einsum_ijk_mij_to_mik, a, y))
+  let einsum_mij_mik_to_ijk y x =
+    perform (Ap_t't_to_t (Einsum_mij_mik_to_ijk, y, x))
   let exp t = perform (Ap_t_to_t (Exp, t))
   let ( ~- ) t = perform (Ap_t_to_t (Negate, t))
   let pow_const t f = perform (Ap_t_to_t (PowerConst f,t))
@@ -258,7 +267,9 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
     | Subtract -> t1 - t2
     | Multiply -> t1 * t2
     | Divide -> t1 / t2
-    | MV bo -> mv ?trans:bo t1 t2
+    | Einsum_ijk_mik_to_mij -> einsum_ijk_mik_to_mij t1 t2
+    | Einsum_ijk_mij_to_mik -> einsum_ijk_mij_to_mik t1 t2
+    | Einsum_mij_mik_to_ijk -> einsum_mij_mik_to_ijk t1 t2
     | SetSlice ill -> set_slice ill t1 t2
 
   let op_t_to_s (o : t_to_s) t = match o with
@@ -331,24 +342,14 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
     | Subtract -> fun td -> (td, ~- td)
     | Multiply -> fun td -> (t2 * td, t1 * td)
     | Divide -> fun td -> (td / t2, (td * (~- t1)) / (t2 * t2))
+    | Einsum_ijk_mik_to_mij -> fun td ->
+      (einsum_mij_mik_to_ijk td t2, einsum_ijk_mij_to_mik t1 td)
+    | Einsum_ijk_mij_to_mik -> fun td ->
+      (einsum_ijk_mik_to_mij t1 td, einsum_mij_mik_to_ijk t2 td)
+    | Einsum_mij_mik_to_ijk -> fun td ->
+      (einsum_ijk_mik_to_mij td t2, einsum_ijk_mij_to_mik td t1)
     | SetSlice ill -> fun td ->
       (set_slice ill td (zeros (shape t2)), get_slice ill td)
-    | MV bo ->
-      let b = match bo with
-        | None -> false
-        | Some b -> b
-      in
-      (* a is a matrx, x is a vector *)
-      let (a, x) = (t1, t2) in
-      (fun td ->
-        let tdm = reshape td [|(shape td).(0); 1|] in
-        let xm = reshape x [|1; (shape x).(0)|] in
-        (* outer product of td and x^T, stored in ad*)
-        let ad = tdm * xm in
-        let adt = if b then transpose ~axis:[|1;0|] ad else ad in
-        let xd = mv ~trans:(not b) a td in
-        (adt, xd)
-      )
 
   let der_t_to_s (o : t_to_s) t = match o with
     | Get ia ->

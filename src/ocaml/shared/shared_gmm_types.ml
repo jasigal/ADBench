@@ -33,8 +33,8 @@ module type GMM_TENSOR = sig
   val slice_left : t -> int array -> t
   val get : t -> int array -> scalar
 
-  (* Matrix-vector multiplication *)
-  val mv : ?trans:bool -> t -> t -> t
+  (* Einsum operation *)
+  val einsum_ijk_mik_to_mij : t -> t -> t
 
   (* Pointwise tensor operations *)
   val exp : t -> t

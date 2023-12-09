@@ -45,6 +45,22 @@ module OwlFloatTensor : Shared_gmm_types.GMM_TENSOR
 
   open Owl.Dense.Ndarray.Generic
 
+  let einsum_ijk_mik_to_mij a x =
+    let ( - ) = Stdlib.( - ) in
+    let (n, k) = ((shape x).(0), (shape x).(1)) in
+    let y = empty Bigarray.Float64 (shape x) in
+    for i = 0 to n - 1 do
+      for j = 0 to k - 1 do
+        (* Slice left are views, i.e. memory is shared. *)
+        let sa = slice_left a [|j|] in
+        let sx = slice_left x [|i; j|] in
+        let sy = slice_left y [|i; j|] in
+        Owl.Cblas.gemv ~trans:false ~incx:1 ~incy:1 ~alpha:1.0 ~beta:0.0
+                       ~a:sa ~x:sx ~y:sy;
+      done;
+    done;
+    y
+
   let tensor x = x
   let shape = shape
   let zeros = zeros Bigarray.Float64
@@ -55,11 +71,7 @@ module OwlFloatTensor : Shared_gmm_types.GMM_TENSOR
   let get_slice = get_slice
   let slice_left = slice_left
   let get = get
-  let mv ?trans a x =
-    let out = empty Bigarray.Float64 [|(shape a).(0)|] in
-    Owl_cblas.gemv ?trans ~incx:1 ~incy:1 ~alpha:1.0 ~beta:0.0
-                   ~a:a ~x:x ~y:out;
-    out
+  let einsum_ijk_mik_to_mij = einsum_ijk_mik_to_mij
   let exp = exp
   let add = add
   let sub = sub
