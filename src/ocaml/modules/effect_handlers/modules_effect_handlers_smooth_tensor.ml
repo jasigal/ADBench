@@ -133,31 +133,6 @@ module type SMOOTH = sig
   val der_t_to_ta : t_to_ta -> tensor -> (tensor array -> tensor)
 end
 
-let string_of_t_to_t (o : t_to_t) = match o with
-  | Squeeze _iao -> "squeeze"
-  | Reshape _d -> "reshape"
-  | GetSlice _ill -> "get_slice"
-  | SliceLeft _ia -> "slice_left"
-  | Transpose _iao -> "transpose"
-  | Exp -> "exp"
-  | Negate -> "negate"
-  | PowerConst _f -> "pow_const"
-  | SumReduce _iao -> "sum_reduce"
-  | LogSumExp (_io, _bo) -> "log_sum_exp"
-  | Softmax _io -> "softmax"
-
-let print_ill ill =
-  print_string "[";
-  List.iter (fun il ->
-    print_string "[";
-    List.iter (fun i ->
-      print_int i;
-      print_string ", "
-    ) il;
-    print_string "], "
-  ) ill;
-  print_string "]"
-
 module type SMOOTH_NON_DIFF = sig
   type scalar
   type tensor
