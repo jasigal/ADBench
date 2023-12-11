@@ -61,7 +61,10 @@ tool_styles = {
 
     # Julia tools
     "Julia": ("c", "v", "Julia, Julia"),
-    "Zygote": ("y", "v", "Julia, Zygote")
+    "Zygote": ("y", "v", "Julia, Zygote"),
+
+    # OCaml tools
+    "OCaml": ("r", "d", "OCaml (handlers)")
 }
 
 function_types = ["objective ÷ Manual", "objective", "jacobian", "jacobian ÷ objective"]
