@@ -10,6 +10,7 @@ module Evaluate_Non_Diff : SMOOTH_NON_DIFF
   
   let shape = Owl.Dense.Ndarray.Generic.shape
   let max ?axis t = fun _ -> Owl.Dense.Ndarray.Generic.max ?axis t
+  let add_ x dx = Owl.Dense.Ndarray.Generic.add_ ~out:x x dx
 end
 
 module T = Owl.Dense.Ndarray.Generic
@@ -139,6 +140,7 @@ module Evaluate = struct
             | SumReduce iao -> continue k T.(sum_reduce ?axis:iao t)
             | LogSumExp (io, bo) ->
               continue k T.(log_sum_exp ?axis:io ?keep_dims:bo t)
+            | Softmax io -> continue k T.(softmax ?axis:io t)
         )
       | Ap_t't_to_t (o, t1, t2) -> Some (fun k ->
           match o with

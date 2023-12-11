@@ -16,6 +16,7 @@ type t_to_t
   | PowerConst of float
   | SumReduce of int array option
   | LogSumExp of int option * bool option
+  | Softmax of int option
 type t't_to_t
   = Add
   | Subtract
@@ -59,6 +60,7 @@ module type SMOOTH = sig
   (* Non-differentiable operations *)
   val shape : tensor -> int array
   val max : ?axis:int -> tensor -> (tensor -> tensor)
+  val add_ : tensor -> tensor -> unit
 
   (* Creating constant tensors *)
   val zeros : int array -> tensor
@@ -100,6 +102,7 @@ module type SMOOTH = sig
   val sum : tensor -> scalar
   val sum_reduce : ?axis:int array -> tensor -> tensor
   val log_sum_exp : ?axis:int -> ?keep_dims:bool -> tensor -> tensor
+  val softmax : ?axis:int -> tensor -> tensor
 
   (* Scalar-tensor operations *)
   val scalar_mul : scalar -> tensor -> tensor
@@ -141,6 +144,7 @@ let string_of_t_to_t (o : t_to_t) = match o with
   | PowerConst _f -> "pow_const"
   | SumReduce _iao -> "sum_reduce"
   | LogSumExp (_io, _bo) -> "log_sum_exp"
+  | Softmax _io -> "softmax"
 
 let print_ill ill =
   print_string "[";
@@ -160,6 +164,7 @@ module type SMOOTH_NON_DIFF = sig
   
   val shape : tensor -> int array
   val max : ?axis:int -> tensor -> (tensor -> tensor)
+  val add_ : tensor -> tensor -> unit
 end
 
 module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
@@ -219,8 +224,9 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
   let sum_reduce ?axis t = perform (Ap_t_to_t (SumReduce axis, t))
   let log_sum_exp ?axis ?keep_dims t =
     perform (Ap_t_to_t (LogSumExp (axis, keep_dims), t))
-  let scalar_mul s t = perform (Ap_s't_to_t (ScalarMultiply, s ,t))
-  let sub_scalar t s = perform (Ap_s't_to_t (SubtractScalar, s ,t))
+  let softmax ?axis t = perform (Ap_t_to_t (Softmax axis, t))
+  let scalar_mul s t = perform (Ap_s't_to_t (ScalarMultiply, s, t))
+  let sub_scalar t s = perform (Ap_s't_to_t (SubtractScalar, s, t))
 
   (* Simple expand operation. ia contains which axes to expand. *)
   let _expand t shp ia =
@@ -264,6 +270,7 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
     | PowerConst f -> pow_const t f
     | SumReduce iao -> sum_reduce ?axis:iao t
     | LogSumExp (io, bo) -> log_sum_exp ?axis:io ?keep_dims:bo t
+    | Softmax io -> softmax ?axis:io t
   let op_t't_to_t (o : t't_to_t) t1 t2 = match o with
     | Add -> t1 + t2
     | Subtract -> t1 - t2
@@ -330,15 +337,13 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
         | (Some i, Some b) -> (i, b)
       in
       if b
-        then fun td ->
-          let et = exp (t - max t (zeros (shape t))) in
-          td * (et / sum_reduce ~axis:[|i|] et)
+        then fun td -> td * softmax ~axis:i t
         else fun td ->
           let shp = shape t in
           shp.(i) <- 1;
-          let et = exp (t - max t (zeros (shape t))) in
-          (reshape td shp) * (et / sum_reduce ~axis:[|i|] et)
-    )
+          (reshape td shp) * (softmax ~axis:i t)
+      )
+    | Softmax _io -> raise (Invalid_argument "Softmax not implemented")
   let der_t't_to_t (o : t't_to_t) t1 t2 = match o with
     | Add -> fun td -> (td, td)
     | Subtract -> fun td -> (td, ~- td)
