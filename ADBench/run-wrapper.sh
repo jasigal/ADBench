@@ -1,5 +1,7 @@
 #!/bin/bash
 
+eval $(opam env)
+
 # init values
 RUN=0
 PLOT=0

@@ -1,0 +1,5 @@
+(copy_files# effect_handlers/*)
+
+(library
+ (name adbench_modules)
+ (libraries adbench_shared unix owl))

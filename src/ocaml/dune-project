@@ -1,0 +1,13 @@
+(lang dune 3.6)
+
+(name adbench)
+
+(generate_opam_files false)
+
+(package
+ (name adbench)
+ (synopsis "OCaml package for ADBench")
+ (description "OCaml package for ADBench")
+ (depends ocaml dune owl unix)
+ (tags
+  ()))

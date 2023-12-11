@@ -1,0 +1,11 @@
+(library
+ (name adbench_runner)
+ (modules Runner_benchmark)
+ (libraries adbench_modules adbench_shared unix owl))
+
+(executable
+ (public_name adbench)
+ (modes (native exe))
+ (name main)
+ (modules Main)
+ (libraries adbench_modules adbench_shared adbench_runner unix owl))
