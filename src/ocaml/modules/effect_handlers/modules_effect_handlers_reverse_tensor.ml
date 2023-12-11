@@ -11,7 +11,6 @@ module Reverse_Non_Diff (T : SMOOTH_NON_DIFF) : SMOOTH_NON_DIFF
   type tensor = T.tensor prop
 
   let shape t = T.shape t.v
-  let max ?axis t = fun z -> {v = T.max ?axis t.v (z.v); dv = z.dv}
   let add_ x dx = T.add_ x.v dx.v; T.add_ x.dv dx.dv
 end
 

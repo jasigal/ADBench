@@ -59,7 +59,6 @@ module type SMOOTH = sig
 
   (* Non-differentiable operations *)
   val shape : tensor -> int array
-  val max : ?axis:int -> tensor -> (tensor -> tensor)
   val add_ : tensor -> tensor -> unit
 
   (* Creating constant tensors *)
@@ -138,7 +137,6 @@ module type SMOOTH_NON_DIFF = sig
   type tensor
   
   val shape : tensor -> int array
-  val max : ?axis:int -> tensor -> (tensor -> tensor)
   val add_ : tensor -> tensor -> unit
 end
 
