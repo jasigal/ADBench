@@ -64,7 +64,7 @@ tool_styles = {
     "Zygote": ("y", "v", "Julia, Zygote"),
 
     # OCaml tools
-    "OCaml": ("r", "d", "OCaml (handlers)")
+    "OCaml": ("g", "d", "OCaml (handlers)")
 }
 
 function_types = ["objective ÷ Manual", "objective", "jacobian", "jacobian ÷ objective"]
@@ -536,7 +536,7 @@ def get_default_input_directory():
 
     adbench_dir = os.path.dirname(os.path.realpath(__file__))
     ad_root_dir = os.path.dirname(adbench_dir)
-    in_dir = os.path.join(ad_root_dir, "tmp")
+    in_dir = os.path.join(ad_root_dir, "results")
 
     return in_dir
 
