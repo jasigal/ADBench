@@ -74,30 +74,38 @@ module Evaluate = struct
             | Softmax (Some i) -> continue k (T.softmax t ~dim:i ~dtype:f32)
             | Softmax None -> continue k (T.softmax t ~dim:0 ~dtype:f32)
         )
-      | _ -> None
-    )
-  }
-end
-(*
       | Ap_t't_to_t (o, t1, t2) -> Some (fun k ->
           match o with
-            | Add -> continue k T.(t1 + t2)
-            | Subtract -> continue k T.(t1 - t2)
-            | Multiply -> continue k T.(t1 * t2)
-            | Divide -> continue k T.(t1 / t2)
+            | Add -> continue k (T.add t1 t2)
+            | Subtract -> continue k (T.sub t1 t2)
+            | Multiply -> continue k (T.mul t1 t2)
+            | Divide -> continue k (T.div t1 t2)
             | Einsum_ijk_mik_to_mij -> continue k (einsum_ijk_mik_to_mij t1 t2)
             | Einsum_ijk_mij_to_mik -> continue k (einsum_ijk_mij_to_mik t1 t2)
             | Einsum_mij_mik_to_ijk -> continue k (einsum_mij_mik_to_ijk t1 t2)
             | SetSlice ill ->
               let tout = T.copy t1 in
-              T.set_slice ill tout t2;
+              let part = match ill with
+                | [[s; (-1)]] -> T.narrow ~dim:0 ~start:s ~length:Stdlib.(List.nth (T.size t2) 0)  t2
+                | [[s; e]] -> T.narrow ~dim:0 ~start:s ~length:Stdlib.(e - s) t2
+                | [[]; [s; (-1)]] -> T.narrow ~dim:1 ~start:s ~length:Stdlib.(List.nth (T.size t2) 1)  t2
+                | [[]; [s; e]] -> T.narrow ~dim:1 ~start:s ~length:Stdlib.(e - s) t2
+                | _ -> raise (Invalid_argument "invalid set_slice use")
+              in
+              T.copy_ tout ~src:part;
               continue k tout
         )
       | Ap_t_to_s (o, t) -> Some (fun k ->
           match o with
-            | Get ia -> continue k T.(get t ia)
-            | Sum -> continue k T.(sum' t)
+            | Get [|i|] -> continue k (T.get_float1 t i)
+            | Get _ -> raise (Invalid_argument "invalid set_slice use")
+            | Sum -> continue k (T.get_float1 (T.sum_to_size t ~size:[0]) 0)
         )
+      | _ -> None
+    )
+  }
+end
+(*
       | Ap_s't_to_t (o, s, t) -> Some (fun k ->
           match o with
             | ScalarMultiply -> continue k T.(scalar_mul s t)
