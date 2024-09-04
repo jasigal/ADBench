@@ -18,6 +18,8 @@ module S = Torch.Scalar
 module Evaluate = struct
   include Smooth (Evaluate_Non_Diff)
 
+  let f32 = Torch_core.Kind.T Torch_core.Kind.f32
+
   let einsum_ijk_mik_to_mij a x = T.einsum ~equation:"ijk,mik->mij" ~path:None [a; x]
 
   let einsum_ijk_mij_to_mik a y = T.einsum ~equation:"ijk,mij->mik" ~path:None [a; y]
@@ -47,43 +49,36 @@ module Evaluate = struct
         )
       | Ap_u_to_t o -> Some (fun k ->
           match o with
-            | Zeros ia -> continue k T.(zeros (Array.to_list ia))
-            | Create (ia, c) -> continue k T.(full ~size:(Array.to_list ia) ~fill_value:(S.f c) ~options:(Torch_core.Kind.T Torch_core.Kind.f32, Torch.Device.Cpu))
+            | Zeros ia -> continue k (T.zeros (Array.to_list ia))
+            | Create (ia, c) -> continue k (T.full ~size:(Array.to_list ia) ~fill_value:(S.f c) ~options:(f32, Torch.Device.Cpu))
         )
       | Ap_t_to_t (o, t) -> Some (fun k ->
           match o with
-            | Squeeze iao -> continue k T.(squeeze ?axis:iao t)
-            | Reshape ia -> continue k T.(reshape t ia)
-            | GetSlice ill -> continue k T.(get_slice ill t)
-            | SliceLeft ia -> continue k T.(slice_left t ia)
-            | Transpose iao -> continue k T.(transpose ?axis:iao t)
-            | Exp -> continue k T.(exp t)
-            | Negate -> continue k T.(neg t)
-            | PowerConst f -> continue k T.(pow_scalar t f)
-            | SumReduce iao -> continue k T.(sum_reduce ?axis:iao t)
-            | LogSumExp (io, bo) -> continue k T.(log_sum_exp ?axis:io ?keep_dims:bo t)
-            | Softmax io -> continue k T.(softmax ?axis:io t)
+            | Squeeze None -> continue k (T.squeeze t)
+            | Squeeze _ -> raise (Invalid_argument "invalid squeeze use")
+            | Reshape ia -> continue k (T.reshape t ~shape:(Array.to_list ia))
+            | GetSlice [[s; (-1)]] -> continue k (T.narrow ~dim:0 ~start:s ~length:Stdlib.(List.nth (T.size t) 0)  t)
+            | GetSlice [[s; e]] -> continue k (T.narrow ~dim:0 ~start:s ~length:Stdlib.(e - s) t)
+            | GetSlice [[]; [s; (-1)]] ->  continue k (T.narrow ~dim:1 ~start:s ~length:Stdlib.(List.nth (T.size t) 1)  t)
+            | GetSlice [[]; [s; e]] -> continue k (T.narrow ~dim:1 ~start:s ~length:Stdlib.(e - s) t)
+            | GetSlice _ -> raise (Invalid_argument "invalid get_slice use")
+            | SliceLeft [|i|] -> continue k (T.narrow ~dim:i ~start:0 ~length:(List.nth (T.size t) i) t)
+            | SliceLeft _ -> raise (Invalid_argument "invalid slice_left use")
+            | Transpose (Some [|i; j|]) -> continue k (T.transpose ~dim0:i ~dim1:j t)
+            | Transpose _ -> raise (Invalid_argument "invalid transpose use")
+            | Exp -> continue k (T.exp t)
+            | Negate -> continue k (T.neg t)
+            | PowerConst e -> continue k (T.pow_tensor_scalar t ~exponent:(S.f e))
+            | SumReduce iao -> continue k (T.sum_dim_intlist t ~dim:(Option.map Array.to_list iao) ~dtype:f32 ~keepdim:true)
+            | LogSumExp (io, bo) -> continue k (T.logsumexp ~dim:([Option.value ~default:0 io]) ~keepdim:(Option.value ~default:true bo) t)
+            | Softmax (Some i) -> continue k (T.softmax t ~dim:i ~dtype:f32)
+            | Softmax None -> continue k (T.softmax t ~dim:0 ~dtype:f32)
         )
       | _ -> None
     )
   }
 end
 (*
-      | Ap_t_to_t (o, t) -> Some (fun k ->
-          match o with
-            | Squeeze iao -> continue k T.(squeeze ?axis:iao t)
-            | Reshape ia -> continue k T.(reshape t ia)
-            | GetSlice ill -> continue k T.(get_slice ill t)
-            | SliceLeft ia -> continue k T.(slice_left t ia)
-            | Transpose iao -> continue k T.(transpose ?axis:iao t)
-            | Exp -> continue k T.(exp t)
-            | Negate -> continue k T.(neg t)
-            | PowerConst f -> continue k T.(pow_scalar t f)
-            | SumReduce iao -> continue k T.(sum_reduce ?axis:iao t)
-            | LogSumExp (io, bo) ->
-              continue k T.(log_sum_exp ?axis:io ?keep_dims:bo t)
-            | Softmax io -> continue k T.(softmax ?axis:io t)
-        )
       | Ap_t't_to_t (o, t1, t2) -> Some (fun k ->
           match o with
             | Add -> continue k T.(t1 + t2)
