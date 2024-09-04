@@ -201,6 +201,14 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
   let scalar_mul s t = perform (Ap_s't_to_t (ScalarMultiply, s, t))
   let sub_scalar t s = perform (Ap_s't_to_t (SubtractScalar, s, t))
 
+  (* Helper function *)
+  let adjust_index i m = Stdlib.(
+    if i >= 0 && i < m
+    then i
+    else if i < 0 && i >= -m
+    then i + m
+    else raise (Invalid_argument "Index out of bounds"))
+
   (* Simple expand operation. ia contains which axes to expand. *)
   let _expand t shp ia =
     let res = ref t in
@@ -357,7 +365,7 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
       (fun td ->
         let shp = shape td in
         let ndim = Array.length shp in
-        let axis = Owl_utils.adjust_index i ndim in
+        let axis = adjust_index i ndim in
         let inp_shp = shape ta.(0) in
         split ~axis:i (Array.make shp.(axis) 1) td
           |> Array.map (fun x -> reshape x inp_shp)
