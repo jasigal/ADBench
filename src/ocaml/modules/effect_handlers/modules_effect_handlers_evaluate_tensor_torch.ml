@@ -101,27 +101,21 @@ module Evaluate = struct
             | Get _ -> raise (Invalid_argument "invalid set_slice use")
             | Sum -> continue k (T.get_float1 (T.sum_to_size t ~size:[0]) 0)
         )
-      | _ -> None
-    )
-  }
-end
-(*
       | Ap_s't_to_t (o, s, t) -> Some (fun k ->
           match o with
-            | ScalarMultiply -> continue k T.(scalar_mul s t)
-            | SubtractScalar -> continue k T.(sub_scalar t s)
+            | ScalarMultiply -> continue k (T.mul_scalar t (S.f s))
+            | SubtractScalar -> continue k (T.sub_scalar t (S.f s))
         )
       | Ap_ta_to_t (o, ta) -> Some (fun k ->
           match o with
-            | Concatenate io -> continue k T.(concatenate ?axis:io ta)
-            | Stack io -> continue k T.(stack ?axis:io ta)
+            | Concatenate io -> continue k (T.concatenate (Array.to_list ta) ~dim:(Option.value ~default:0 io))
+            | Stack io -> continue k (T.stack (Array.to_list ta)  ~dim:(Option.value ~default:0 io))
         )
       | Ap_t_to_ta (o, t) -> Some (fun k ->
           match o with
-            | Split (io, ia) -> continue k T.(split ?axis:io ia t)
+            | Split (io, ia) -> continue k (Array.of_list (T.split_sizes t ~split_size:(Array.to_list ia) ~dim:(Option.value ~default:0 io)))
         )
       | _ -> None
     )
   }
 end
-*)

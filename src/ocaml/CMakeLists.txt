@@ -1,7 +1,7 @@
 project("ocaml")
 
 set(ENV{CFLAGS} "-I/usr/include -L/usr/lib/x86_64-linux-gnu")
-execute_process(COMMAND "opam" "install" "--yes" "owl=1.1")
+execute_process(COMMAND "opam" "install" "--yes" "owl=1.1" "torch=v0.16.0")
 
 message("Starting dune build in ${PROJECT_SOURCE_DIR}")
 execute_process(
