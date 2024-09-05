@@ -18,7 +18,7 @@ module S = Torch.Scalar
 module Evaluate = struct
   include Smooth (Evaluate_Non_Diff)
 
-  let f32 = Torch_core.Kind.T Torch_core.Kind.f32
+  let f64 = Torch_core.Kind.T Torch_core.Kind.f64
 
   let einsum_ijk_mik_to_mij a x = T.einsum ~equation:"ijk,mik->mij" ~path:None [a; x]
 
@@ -50,7 +50,7 @@ module Evaluate = struct
       | Ap_u_to_t o -> Some (fun k ->
           match o with
             | Zeros ia -> continue k (T.zeros (Array.to_list ia))
-            | Create (ia, c) -> continue k (T.full ~size:(Array.to_list ia) ~fill_value:(S.f c) ~options:(f32, Torch.Device.Cpu))
+            | Create (ia, c) -> continue k (T.full ~size:(Array.to_list ia) ~fill_value:(S.f c) ~options:(f64, Torch.Device.Cpu))
         )
       | Ap_t_to_t (o, t) -> Some (fun k ->
           match o with
@@ -69,10 +69,10 @@ module Evaluate = struct
             | Exp -> continue k (T.exp t)
             | Negate -> continue k (T.neg t)
             | PowerConst e -> continue k (T.pow_tensor_scalar t ~exponent:(S.f e))
-            | SumReduce iao -> continue k (T.sum_dim_intlist t ~dim:(Option.map Array.to_list iao) ~dtype:f32 ~keepdim:true)
+            | SumReduce iao -> continue k (T.sum_dim_intlist t ~dim:(Option.map Array.to_list iao) ~dtype:f64 ~keepdim:true)
             | LogSumExp (io, bo) -> continue k (T.logsumexp ~dim:([Option.value ~default:0 io]) ~keepdim:(Option.value ~default:true bo) t)
-            | Softmax (Some i) -> continue k (T.softmax t ~dim:i ~dtype:f32)
-            | Softmax None -> continue k (T.softmax t ~dim:0 ~dtype:f32)
+            | Softmax (Some i) -> continue k (T.softmax t ~dim:i ~dtype:f64)
+            | Softmax None -> continue k (T.softmax t ~dim:0 ~dtype:f64)
         )
       | Ap_t't_to_t (o, t1, t2) -> Some (fun k ->
           match o with

@@ -12,6 +12,7 @@ RUN apt-get update && \
         opam=2.0.3-1+deb10u1 \
         libopenblas-dev=0.3.5+ds-3 \
         liblapacke-dev=3.8.0-2 \
+        libffi-dev \
         && rm -rf /var/lib/apt/lists/*
 
 # Install powershell
@@ -40,7 +41,7 @@ RUN opam init --yes --disable-sandboxing && \
     opam update && \
     opam switch create 5.0.0 && \
     eval $(opam env) && \
-    opam install dune=3.7.0 && \
+    opam install dune=3.16.0 && \
     echo 'eval $(opam env)' >> /root/.bashrc
 
 WORKDIR /adb

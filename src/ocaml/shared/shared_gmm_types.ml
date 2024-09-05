@@ -14,7 +14,7 @@ module type GMM_TENSOR = sig
   type t
   type scalar
 
-  val tensor : (float, Bigarray.float64_elt) Owl.Dense.Ndarray.Generic.t -> t
+  val tensor : Torch.Tensor.t -> t
 
   (* Shape of the tensor *)
   val shape : t -> int array

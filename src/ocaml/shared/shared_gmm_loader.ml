@@ -1,5 +1,7 @@
 open Shared_gmm_data
-open Owl.Dense.Ndarray.Generic
+open Torch.Tensor
+
+let f64 = Torch_core.Kind.T Torch_core.Kind.f64
 
 (* Load a file containing GMM inputs *)
 let load_input file_name replicate_point =
@@ -13,39 +15,40 @@ let load_input file_name replicate_point =
   let n = int_of_string (List.nth header 2) in
   let icf_sz = Stdlib.(d * (d + 1) / 2) in
 
-  let alphas = init Bigarray.Float64 [|k|] (fun _ ->
-    float_of_string (input_line ic)
-  ) in
+  let alphas = empty ~size:[k] ~options:(f64, Torch.Device.Cpu) in
+  for ik = 0 to Stdlib.(-) k 1 do
+    set_float1 alphas ik (float_of_string (input_line ic))
+  done;
 
-  let means = empty Bigarray.Float64 [|d;k|] in
+  let means = empty ~size:[d; k] ~options:(f64, Torch.Device.Cpu) in
   for ik = 0 to Stdlib.(-) k 1 do
     let line = List.map float_of_string (split (input_line ic)) in
     for id = 0 to Stdlib.(-) d 1 do
-      set means [|id;ik|] (List.nth line id)
+      set_float2 means id ik (List.nth line id)
     done;
   done;
 
-  let icfs = empty Bigarray.Float64 [|icf_sz;k|] in
+  let icfs = empty ~size:[icf_sz; k] ~options:(f64, Torch.Device.Cpu) in
   for ik = 0 to Stdlib.(-) k 1 do
     let line = List.map float_of_string (split (input_line ic)) in
     for i = 0 to Stdlib.(-) icf_sz 1 do
-      set icfs [|i;ik|] (List.nth line i)
+      set_float2 icfs i ik (List.nth line i)
     done;
   done;
 
-  let x = empty Bigarray.Float64 [|d;n|] in
+  let x = empty ~size:[d; n] ~options:(f64, Torch.Device.Cpu) in
   if replicate_point then
     let line = List.map float_of_string (split (input_line ic)) in
     for ix = 0 to Stdlib.(-) n 1 do
       for id = 0 to Stdlib.(-) d 1 do
-        set x [|id;ix|] (List.nth line id)
+        set_float2 x id ix (List.nth line id)
       done;
     done;
   else
     for ix = 0 to Stdlib.(-) n 1 do
       let line = List.map float_of_string (split (input_line ic)) in
       for id = 0 to Stdlib.(-) d 1 do
-        set x [|id;ix|] (List.nth line id)
+        set_float2 x id ix (List.nth line id)
       done;
     done;
 
@@ -58,9 +61,9 @@ let load_input file_name replicate_point =
   close_in ic;
 
   {
-    alphas = transpose alphas;
-    means = transpose means;
-    icfs = transpose icfs;
-    x = transpose x;
+    alphas = transpose ~dim0:0 ~dim1:1 alphas;
+    means = transpose ~dim0:0 ~dim1:1 means;
+    icfs = transpose ~dim0:0 ~dim1:1 icfs;
+    x = transpose ~dim0:0 ~dim1:1 x;
     wishart = wishart;
   }
