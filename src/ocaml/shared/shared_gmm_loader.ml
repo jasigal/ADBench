@@ -61,7 +61,7 @@ let load_input file_name replicate_point =
   close_in ic;
 
   {
-    alphas = transpose ~dim0:0 ~dim1:1 alphas;
+    alphas = alphas;
     means = transpose ~dim0:0 ~dim1:1 means;
     icfs = transpose ~dim0:0 ~dim1:1 icfs;
     x = transpose ~dim0:0 ~dim1:1 x;

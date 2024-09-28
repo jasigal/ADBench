@@ -8,6 +8,7 @@ module FloatScalar : Shared_gmm_types.GMM_SCALAR
   type t = float
 
   let float x = x
+  let print x = Printf.printf "%f" x
   let log = Stdlib.log
   let ( +. ) = Stdlib.( +. )
   let ( -. ) = Stdlib.( -. )
@@ -22,6 +23,7 @@ module EvaluateScalar : Shared_gmm_types.GMM_SCALAR
   type t = Evaluate.scalar
 
   let float = c
+  let print x = Printf.printf "%f" x
 end
 
 module ReverseEvaluate = Reverse (Evaluate)
@@ -33,6 +35,7 @@ module ReverseScalar : Shared_gmm_types.GMM_SCALAR
   type t = ReverseEvaluate.scalar
 
   let float = c
+  let print x = Printf.printf "{v: %f, dv: %f}" x.v x.dv
 end
 
 module EvaluateTensor : Shared_gmm_types.GMM_TENSOR
@@ -44,6 +47,7 @@ module EvaluateTensor : Shared_gmm_types.GMM_TENSOR
   type scalar = Evaluate.scalar
 
   let tensor x = x
+  let print x = Torch.Tensor.print x
   let add = ( + )
   let sub = ( - )
   let mul = ( * )
@@ -62,6 +66,7 @@ module ReverseTensor : Shared_gmm_types.GMM_TENSOR
       v = x;
       dv = Evaluate.zeros (Array.of_list (Torch.Tensor.shape x))
     }
+  let print x = Torch.Tensor.print x.v; Torch.Tensor.print x.dv
   let create ia f = create ia (Evaluate.c f)
   let add = ( + )
   let sub = ( - )

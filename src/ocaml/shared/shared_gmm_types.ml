@@ -2,6 +2,7 @@ module type GMM_SCALAR = sig
   type t
 
   val float : float -> t
+  val print : t -> unit
 
   val log : t -> t
   val ( +. ) : t -> t -> t
@@ -15,6 +16,7 @@ module type GMM_TENSOR = sig
   type scalar
 
   val tensor : Torch.Tensor.t -> t
+  val print : t -> unit
 
   (* Shape of the tensor *)
   val shape : t -> int array
@@ -32,6 +34,7 @@ module type GMM_TENSOR = sig
   val get_slice : int list list -> t -> t
   val slice_left : t -> int array -> t
   val get : t -> int array -> scalar
+  val reshape : t -> int array -> t
 
   (* Einsum operation *)
   val einsum_ijk_mik_to_mij : t -> t -> t

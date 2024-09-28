@@ -27,18 +27,30 @@ module Make
     let lparamidx = ref d in
 
     let make_l_col i =
+    Printf.printf "make_l_col %i\n" i;
       let nelems = Stdlib.(d - i - 1) in
       (* Slicing in Owl requires inculsive indices, so will not create
       * an empty tensor. Thus we have two cases. 
       *)
       let max_lparamidx = (shape icfs).(0) in
+      Printf.printf "%i, %i\n" !lparamidx Stdlib.(!lparamidx + nelems - 1);
+      let sz = T.shape icfs in
+      Array.iter (fun i -> Printf.printf "%i; " i) sz;
+      Printf.printf "\n";
       let col =
         if Stdlib.(!lparamidx >= max_lparamidx) then
           zeros [|Stdlib.(i + 1)|]
-        else concatenate ~axis:0 [|
-          zeros [|Stdlib.(i + 1)|];
-          get_slice [[!lparamidx; Stdlib.(!lparamidx + nelems - 1)]] icfs;
-      |] in
+        else if !lparamidx == Stdlib.(!lparamidx + nelems - 1) then
+          concatenate ~axis:0 [|
+            zeros [|Stdlib.(i + 1)|];
+            reshape (get_slice [[!lparamidx; Stdlib.(!lparamidx + nelems - 1)]] icfs) [|0|];
+          |]
+        else
+          concatenate ~axis:0 [|
+            zeros [|Stdlib.(i + 1)|];
+            get_slice [[!lparamidx; Stdlib.(!lparamidx + nelems - 1)]] icfs;
+          |]
+      in
       lparamidx := Stdlib.(!lparamidx + nelems);
       col
     in
@@ -91,15 +103,24 @@ module Make
     let d = xshape.(1) in
     let k = (shape param.means).(0) in
 
+    Printf.printf "qdiags\n"; flush_all ();
     let qdiags = exp (get_slice [[]; [0; Stdlib.(d - 1)]] param.icfs) in
+    print qdiags;
+    Printf.printf "sqdiags\n"; flush_all ();
     let sqdiags = stack (Array.make n qdiags) in
+    print sqdiags;
+    Printf.printf "sum_qs\n"; flush_all ();
     let sum_qs = squeeze (
       sum_reduce ~axis:[|1|] (get_slice [[]; [0; Stdlib.(d - 1)]] param.icfs)
     ) in
+    print sum_qs;
+    Printf.printf "ssum_qs\n"; flush_all ();
     (* Prevent implicit broadcasting *)
     let ssum_qs = stack (Array.make n sum_qs) in
+    print ssum_qs;
 
     let icf_sz = (shape param.icfs).(0) in
+    Printf.printf "ls\n"; flush_all ();
     let ls = stack (Array.init icf_sz (fun i ->
       constructl d (slice_left param.icfs [|i|]))
     ) in
