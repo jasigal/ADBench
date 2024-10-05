@@ -25,32 +25,41 @@ module Make
 
   let constructl d icfs =
     let lparamidx = ref d in
+    Printf.printf "icf\n"; flush_all ();
+    print icfs;
 
     let make_l_col i =
-    Printf.printf "make_l_col %i\n" i;
+      Printf.printf "make_l_col %i\n" i; flush_all ();
       let nelems = Stdlib.(d - i - 1) in
       (* Slicing in Owl requires inculsive indices, so will not create
       * an empty tensor. Thus we have two cases. 
       *)
       let max_lparamidx = (shape icfs).(0) in
-      Printf.printf "%i, %i\n" !lparamidx Stdlib.(!lparamidx + nelems - 1);
+      Printf.printf "%i, %i\n" !lparamidx Stdlib.(!lparamidx + nelems - 1); flush_all ();
       let sz = T.shape icfs in
+      Printf.printf "sz\n";
       Array.iter (fun i -> Printf.printf "%i; " i) sz;
       Printf.printf "\n";
+      Printf.printf "slice_sz\n";
+      let slice_sz = T.shape (get_slice [[!lparamidx; Stdlib.(!lparamidx + nelems - 1)]] icfs) in
+      Array.iter (fun i -> Printf.printf "%i; " i) slice_sz;
+      Printf.printf "\n"; flush_all ();
       let col =
         if Stdlib.(!lparamidx >= max_lparamidx) then
           zeros [|Stdlib.(i + 1)|]
-        else if !lparamidx == Stdlib.(!lparamidx + nelems - 1) then
+        (* else if !lparamidx == Stdlib.(!lparamidx + nelems - 1) then
           concatenate ~axis:0 [|
             zeros [|Stdlib.(i + 1)|];
             reshape (get_slice [[!lparamidx; Stdlib.(!lparamidx + nelems - 1)]] icfs) [|0|];
-          |]
+          |] *)
         else
           concatenate ~axis:0 [|
             zeros [|Stdlib.(i + 1)|];
-            get_slice [[!lparamidx; Stdlib.(!lparamidx + nelems - 1)]] icfs;
+            squeeze (get_slice [[!lparamidx; Stdlib.(!lparamidx + nelems - 1)]] icfs);
           |]
       in
+      Printf.printf "col\n"; flush_all ();
+      print col;
       lparamidx := Stdlib.(!lparamidx + nelems);
       col
     in
@@ -120,6 +129,12 @@ module Make
     print ssum_qs;
 
     let icf_sz = (shape param.icfs).(0) in
+    Printf.printf "icfs dims\n"; flush_all ();
+    Array.iter (fun i -> Printf.printf "%i; " i) (shape param.icfs);
+    Printf.printf "\n"; flush_all ();
+    let _ = (Array.init icf_sz (fun i ->
+      print (slice_left param.icfs [|i|]))
+    ) in
     Printf.printf "ls\n"; flush_all ();
     let ls = stack (Array.init icf_sz (fun i ->
       constructl d (slice_left param.icfs [|i|]))

@@ -1,5 +1,6 @@
 ﻿# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
+# cSpell:disable
 
 import math
 from scipy import special as scipy_special
@@ -45,13 +46,20 @@ def log_wishart_prior(p, wishart_gamma, wishart_m, sum_qs, Qdiags, icf):
 def constructL(d, icf):
     constructL.Lparamidx = d
 
+    print("icf")
+    print(icf)
     def make_L_col(i):
+        print("make_L_col", i)
         nelems = d - i - 1
+        slice_sz = (icf[constructL.Lparamidx:(constructL.Lparamidx + nelems)]).shape
+        print("slize_sz")
+        print(slice_sz)
         col = torch.cat([
             torch.zeros(i + 1, dtype = torch.float64),
             icf[constructL.Lparamidx:(constructL.Lparamidx + nelems)]
         ])
-
+        print("col")
+        print(col)
         constructL.Lparamidx += nelems
         return col
 
@@ -69,10 +77,17 @@ def gmm_objective(alphas, means, icf, x, wishart_gamma, wishart_m):
     n = x.shape[0]
     d = x.shape[1]
 
+    print("QDiags")
     Qdiags = torch.exp(icf[:, :d])
+    print(Qdiags)
+    print("sum_qs")
     sum_qs = torch.sum(icf[:, :d], 1)
+    print(sum_qs)
+    print("Ls")
     Ls = torch.stack([constructL(d, curr_icf) for curr_icf in icf])
-    
+    print(Ls)
+    assert(False)
+
     xcentered = torch.stack(tuple( x[i] - means for i in range(n) ))
     Lxcentered = Qtimesx(Qdiags, Ls, xcentered)
     sqsum_Lxcentered = torch.sum(Lxcentered ** 2, 2)
