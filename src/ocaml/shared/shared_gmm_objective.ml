@@ -25,17 +25,17 @@ module Make
 
   let constructl d icfs =
     let lparamidx = ref d in
-    Printf.printf "icf\n"; flush_all ();
+    Printf.printf "icfs\n"; flush_all ();
     print icfs;
 
     let make_l_col i =
       Printf.printf "make_l_col %i\n" i; flush_all ();
       let nelems = Stdlib.(d - i - 1) in
       (* Slicing in Owl requires inculsive indices, so will not create
-      * an empty tensor. Thus we have two cases. 
+      * an empty tensor. Thus we have two cases.
       *)
       let max_lparamidx = (shape icfs).(0) in
-      Printf.printf "%i, %i\n" !lparamidx Stdlib.(!lparamidx + nelems - 1); flush_all ();
+      Printf.printf "bounds: %i, %i\n" !lparamidx Stdlib.(!lparamidx + nelems - 1); flush_all ();
       let sz = T.shape icfs in
       Printf.printf "sz\n";
       Array.iter (fun i -> Printf.printf "%i; " i) sz;
@@ -47,11 +47,11 @@ module Make
       let col =
         if Stdlib.(!lparamidx >= max_lparamidx) then
           zeros [|Stdlib.(i + 1)|]
-        (* else if !lparamidx == Stdlib.(!lparamidx + nelems - 1) then
+        else if !lparamidx == Stdlib.(!lparamidx + nelems - 1) then
           concatenate ~axis:0 [|
             zeros [|Stdlib.(i + 1)|];
-            reshape (get_slice [[!lparamidx; Stdlib.(!lparamidx + nelems - 1)]] icfs) [|0|];
-          |] *)
+            reshape (get_slice [[!lparamidx; Stdlib.(!lparamidx + nelems - 1)]] icfs) [|1|];
+          |]
         else
           concatenate ~axis:0 [|
             zeros [|Stdlib.(i + 1)|];
@@ -65,9 +65,17 @@ module Make
     in
 
     let columns = Array.init d make_l_col in
-    stack ~axis:1 columns
+    let res = stack ~axis:1 columns in
+    print res;
+    res
 
   let qtimesx qdiag l x =
+    Printf.printf "l shape\n";
+    Array.iter (fun i -> Printf.printf "%i; " i) (shape l);
+    Printf.printf "\n";
+    Printf.printf "x shape\n";
+    Array.iter (fun i -> Printf.printf "%i; " i) (shape x);
+    Printf.printf "\n";
     let y = einsum_ijk_mik_to_mij l x in
     (qdiag * x) + y
 
@@ -85,7 +93,7 @@ module Make
   let log_wishart_prior p wishart sum_qs qdiags icf =
     let n = float_of_int (Stdlib.(p + wishart.m + 1)) in
     let k = float_of_int ((shape icf).(0)) in
-    
+
     let out = sum_reduce (
       (
         scalar_mul (S.float 0.5 *. wishart.gamma *. wishart.gamma)
@@ -110,7 +118,7 @@ module Make
     let xshape = shape param.x in
     let n = xshape.(0) in
     let d = xshape.(1) in
-    let k = (shape param.means).(0) in
+    (* let k = (shape param.means).(0) in *)
 
     Printf.printf "qdiags\n"; flush_all ();
     let qdiags = exp (get_slice [[]; [0; Stdlib.(d - 1)]] param.icfs) in
@@ -137,36 +145,54 @@ module Make
     ) in
     Printf.printf "ls\n"; flush_all ();
     let ls = stack (Array.init icf_sz (fun i ->
-      constructl d (slice_left param.icfs [|i|]))
+      constructl d (squeeze (slice_left param.icfs [|i|])))
     ) in
+    print ls;
 
+    Printf.printf "xcentered\n"; flush_all ();
     let xcentered = squeeze (stack (Array.init n (fun i ->
       let sx = slice_left param.x [|i|] in
       (* Prevent implicit broadcasting *)
-      let ssx = stack (Array.make k sx) in
-      ssx - param.means
+      (* let ssx = stack (Array.make k sx) in *)
+      sx - param.means
     ))) in
+    print xcentered;
+    Printf.printf "lxcentered\n"; flush_all ();
     let lxcentered = qtimesx sqdiags ls xcentered in
+    print lxcentered;
+    Printf.printf "sqsum_lxcentered\n"; flush_all ();
     let sqsum_lxcentered = squeeze (
       sum_reduce ~axis:[|2|] (pow_const lxcentered 2.0)
     ) in
+    print sqsum_lxcentered;
     (* Prevent implicit broadcasting *)
     let salphas = stack (Array.make n param.alphas) in
+    Printf.printf "inner_term\n"; flush_all ();
     let inner_term =
       salphas + ssum_qs - (scalar_mul (S.float 0.5) sqsum_lxcentered)
     in
+    print inner_term;
     (* Uses the stable version as in the paper, i.e. max-shifted *)
+    Printf.printf "lse\n"; flush_all ();
     let lse = squeeze (log_sum_exp ~axis:1 inner_term) in
+    print lse;
+    Printf.printf "slse\n"; flush_all ();
     let slse = sum_reduce lse in
-
+    print slse;
+    
     let const = create [||] Stdlib.(
       -. (float_of_int n) *. (float_of_int d) *. 0.5 *. log (2.0 *. Float.pi)
     ) in
-    
+
+    Printf.printf "wish\n"; flush_all ();
     let wish = log_wishart_prior d param.wishart sum_qs qdiags param.icfs in
-    get (
+    print wish;
+    let final = get (
       const + slse
             - scalar_mul (S.float (float_of_int n)) (squeeze (log_sum_exp param.alphas))
             + wish
-    ) [|0|]
+    ) [|0|] in
+    Printf.printf "RESULT\n"; flush_all ();
+    S.print final;
+    final
 end

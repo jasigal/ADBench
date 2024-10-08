@@ -1,6 +1,7 @@
 ﻿# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 # cSpell:disable
+# python3 runner/main.py GMM modules/PyTorch/PyTorchGMM.py ../../data/gmm/test.txt . 0.5 1 1 1000
 
 import math
 from scipy import special as scipy_special
@@ -68,7 +69,11 @@ def constructL(d, icf):
 
 
 def Qtimesx(Qdiag, L, x):
-
+    print("FINDME\n")
+    print("L.shape\n")
+    print(L.shape)
+    print("\nx.shape")
+    print(x.shape)
     f = torch.einsum('ijk,mik->mij', L, x)
     return Qdiag * x + f
 
@@ -83,18 +88,40 @@ def gmm_objective(alphas, means, icf, x, wishart_gamma, wishart_m):
     print("sum_qs")
     sum_qs = torch.sum(icf[:, :d], 1)
     print(sum_qs)
+    print("icf")
+    print(icf)
     print("Ls")
     Ls = torch.stack([constructL(d, curr_icf) for curr_icf in icf])
     print(Ls)
-    assert(False)
 
+    print("x")
+    print(x)
+    print("means")
+    print(means)
+    print("xcentered")
     xcentered = torch.stack(tuple( x[i] - means for i in range(n) ))
+    print(xcentered)
+    print("Lxcentered")
     Lxcentered = Qtimesx(Qdiags, Ls, xcentered)
+    print(Lxcentered)
+    print("sqsum_Lxcentered")
     sqsum_Lxcentered = torch.sum(Lxcentered ** 2, 2)
+    print(sqsum_Lxcentered)
+    print("inner_term")
     inner_term = alphas + sum_qs - 0.5 * sqsum_Lxcentered
+    print(inner_term)
+    print("lse")
     lse = logsumexpvec(inner_term)
+    print(lse)
+    print("slse")
     slse = torch.sum(lse)
+    print(slse)
 
+    print("wish")
+    print(log_wishart_prior(d, wishart_gamma, wishart_m, sum_qs, Qdiags, icf))
     CONSTANT = -n * d * 0.5 * math.log(2 * math.pi)
-    return CONSTANT + slse - n * logsumexp(alphas) \
+    res = CONSTANT + slse - n * logsumexp(alphas) \
         + log_wishart_prior(d, wishart_gamma, wishart_m, sum_qs, Qdiags, icf)
+    print("RESULT")
+    print(res)
+    assert(False)

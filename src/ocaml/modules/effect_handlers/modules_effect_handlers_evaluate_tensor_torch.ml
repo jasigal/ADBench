@@ -57,9 +57,9 @@ module Evaluate = struct
             | Squeeze None -> continue k (T.squeeze t)
             | Squeeze _ -> raise (Invalid_argument "invalid squeeze use")
             | Reshape ia -> continue k (T.reshape t ~shape:(Array.to_list ia))
-            | GetSlice [[s; (-1)]] -> continue k (T.narrow_copy ~dim:0 ~start:s ~length:Stdlib.(List.nth (T.size t) 0)  t)
+            | GetSlice [[s; (-1)]] -> continue k (T.narrow_copy ~dim:0 ~start:s ~length:Stdlib.((List.nth (T.size t) 0) - s)  t)
             | GetSlice [[s; e]] -> continue k (T.narrow_copy ~dim:0 ~start:s ~length:Stdlib.(e - s + 1) t)
-            | GetSlice [[]; [s; (-1)]] ->  continue k (T.narrow_copy ~dim:1 ~start:s ~length:Stdlib.(List.nth (T.size t) 1)  t)
+            | GetSlice [[]; [s; (-1)]] ->  continue k (T.narrow_copy ~dim:1 ~start:s ~length:Stdlib.((List.nth (T.size t) 1) - s)  t)
             | GetSlice [[]; [s; e]] -> continue k (T.narrow_copy ~dim:1 ~start:s ~length:Stdlib.(e - s + 1) t)
             | GetSlice _ -> raise (Invalid_argument "invalid get_slice use")
             | SliceLeft [|i|] -> continue k (T.narrow ~dim:0 ~start:i ~length:1 t)
@@ -86,20 +86,38 @@ module Evaluate = struct
             | SetSlice ill ->
               let tout = T.copy t1 in
               let part = match ill with
-                | [[s; (-1)]] -> T.narrow ~dim:0 ~start:s ~length:Stdlib.(List.nth (T.size t2) 0)  t2
-                | [[s; e]] -> T.narrow ~dim:0 ~start:s ~length:Stdlib.(e - s) t2
-                | [[]; [s; (-1)]] -> T.narrow ~dim:1 ~start:s ~length:Stdlib.(List.nth (T.size t2) 1)  t2
-                | [[]; [s; e]] -> T.narrow ~dim:1 ~start:s ~length:Stdlib.(e - s) t2
-                | _ -> raise (Invalid_argument "invalid set_slice use")
+                | [[0]] -> tout
+                | [[s; (-1)]] -> T.narrow_copy ~dim:0 ~start:s ~length:Stdlib.((List.nth (T.size tout) 0) - s) tout
+                | [[s; e]] -> T.narrow_copy ~dim:0 ~start:s ~length:Stdlib.(e - s + 1) tout
+                | [[]; [s; (-1)]] -> T.narrow_copy ~dim:1 ~start:s ~length:Stdlib.((List.nth (T.size tout) 1) - s) tout
+                | [[]; [s; e]] -> T.narrow_copy ~dim:1 ~start:s ~length:Stdlib.(e - s + 1) tout
+                | _ ->
+                  Printf.printf "ill\n";
+                  List.iter (fun il ->
+                    Printf.printf "[";
+                    List.iter (fun i -> Printf.printf "%i; " i) il;
+                    Printf.printf "]"
+                  ) ill;
+                  Printf.printf "\n";
+                  raise (Invalid_argument "invalid set_slice use")
               in
-              T.copy_ tout ~src:part;
+              Printf.printf "t1 shape\n"; flush_all ();
+              Array.iter (fun i -> Printf.printf "%i; " i) (shape t1);
+              Printf.printf "\n"; flush_all ();
+              Printf.printf "t2 shape\n"; flush_all ();
+              Array.iter (fun i -> Printf.printf "%i; " i) (shape t2);
+              Printf.printf "\n"; flush_all ();
+              Printf.printf "part shape\n"; flush_all ();
+              Array.iter (fun i -> Printf.printf "%i; " i) (shape part);
+              Printf.printf "\n"; flush_all ();
+              T.copy_ part ~src:t2;
               continue k tout
         )
       | Ap_t_to_s (o, t) -> Some (fun k ->
           match o with
             | Get [|i|] -> continue k (T.get_float1 t i)
             | Get _ -> raise (Invalid_argument "invalid set_slice use")
-            | Sum -> continue k (T.get_float1 (T.sum_to_size t ~size:[0]) 0)
+            | Sum -> continue k (T.get_float1 (T.sum_to_size t ~size:[1]) 0)
         )
       | Ap_s't_to_t (o, s, t) -> Some (fun k ->
           match o with
