@@ -1,6 +1,8 @@
 open Effect.Deep
 open Modules_effect_handlers_smooth_tensor
 
+module T = Owl.Dense.Ndarray.Generic
+
 module Evaluate_Non_Diff : SMOOTH_NON_DIFF
   with type scalar = float
   with type tensor = (float, Bigarray.float64_elt) Owl.Dense.Ndarray.Generic.t
@@ -10,9 +12,9 @@ module Evaluate_Non_Diff : SMOOTH_NON_DIFF
   
   let shape = Owl.Dense.Ndarray.Generic.shape
   let add_ x dx = Owl.Dense.Ndarray.Generic.add_ ~out:x x dx
+  let sprint s = print_float s
+  let tprint t = T.print t
 end
-
-module T = Owl.Dense.Ndarray.Generic
 
 module Evaluate = struct
   include Smooth (Evaluate_Non_Diff)

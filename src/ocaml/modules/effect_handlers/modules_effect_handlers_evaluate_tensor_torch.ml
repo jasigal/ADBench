@@ -1,6 +1,9 @@
 open Effect.Deep
 open Modules_effect_handlers_smooth_tensor
 
+module T = Torch.Tensor
+module S = Torch.Scalar
+
 module Evaluate_Non_Diff : SMOOTH_NON_DIFF
   with type scalar = float
   with type tensor = Torch.Tensor.t
@@ -10,10 +13,9 @@ module Evaluate_Non_Diff : SMOOTH_NON_DIFF
   
   let shape t = Array.of_list (Torch.Tensor.size t)
   let add_ x dx = let _ = Torch.Tensor.add_ x dx in ()
+  let sprint s = print_float s
+  let tprint t = T.print t
 end
-
-module T = Torch.Tensor
-module S = Torch.Scalar
 
 module Evaluate = struct
   include Smooth (Evaluate_Non_Diff)

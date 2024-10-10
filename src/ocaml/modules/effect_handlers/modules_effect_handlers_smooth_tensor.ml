@@ -32,6 +32,92 @@ type s't_to_t = ScalarMultiply | SubtractScalar
 type ta_to_t = Concatenate of int option | Stack of int option
 type t_to_ta = Split of int option * int array
 
+let print_u_to_s o =
+  let str = match o with
+    | Const _ -> "Const"
+  in
+  print_string str;
+  print_newline ()
+let print_s_to_s (o : s_to_s) =
+  let str = match o with
+    | Negate -> "Negate"
+    | Log -> "Log"
+  in
+  print_string str;
+  print_newline ()
+let print_s's_to_s (o : s's_to_s) =
+  let str = match o with
+    | Add -> "Add"
+    | Subtract -> "Subtract"
+    | Multiply -> "Multiply"
+    | Divide -> "Divide"
+  in
+  print_string str;
+  print_newline ()
+let print_u_to_t o =
+  let str = match o with
+    | Zeros _ -> "Zeroes"
+    | Create _ -> "Create"
+  in
+  print_string str;
+  print_newline ()
+let print_t_to_t o =
+  let str = match o with
+    | Squeeze _ -> "Squeeze"
+    | Reshape _ -> "Reshape"
+    | GetSlice _ -> "GetSlice"
+    | SliceLeft _ -> "SliceLeft"
+    | Transpose _ -> "Transpose"
+    | Exp -> "Exp"
+    | Negate -> "Negate"
+    | PowerConst _ -> "PowerConst"
+    | SumReduce _ -> "SumReduce"
+    | LogSumExp _ -> "LogSumExp"
+    | Softmax _ -> "Softmax"
+  in
+  print_string str;
+  print_newline ()
+let print_t't_to_t o =
+  let str = match o with
+    | Add -> "Add"
+    | Subtract -> "Subtract"
+    | Multiply -> "Multiply"
+    | Divide -> "Divide"
+    | Einsum_ijk_mik_to_mij -> "Einsum_ijk_mik_to_mij"
+    | Einsum_ijk_mij_to_mik -> "Einsum_ijk_mij_to_mik"
+    | Einsum_mij_mik_to_ijk -> "Einsum_mij_mik_to_ijk"
+    | SetSlice _ -> "SetSlice"
+  in
+  print_string str;
+  print_newline ()
+let print_t_to_s o =
+  let str = match o with
+    | Get _ -> "Get"
+    | Sum -> "Sum"
+  in
+  print_string str;
+  print_newline ()
+let print_s't_to_t o =
+  let str = match o with
+    | ScalarMultiply -> "ScalarMultiply"
+    | SubtractScalar -> "SubtractScalar"
+  in
+  print_string str;
+  print_newline ()
+let print_ta_to_t o =
+  let str = match o with
+    | Concatenate _ -> "Concatenate"
+    | Stack _ -> "Stack"
+  in
+  print_string str;
+  print_newline ()
+let print_t_to_ta o =
+  let str = match o with
+    | Split _ -> "Split"
+  in
+  print_string str;
+  print_newline ()
+
 type arg = L | R
 
 module type SMOOTH = sig
@@ -60,6 +146,8 @@ module type SMOOTH = sig
   (* Non-differentiable operations *)
   val shape : tensor -> int array
   val add_ : tensor -> tensor -> unit
+  val sprint : scalar -> unit
+  val tprint : tensor -> unit
 
   (* Creating constant tensors *)
   val zeros : int array -> tensor
@@ -138,6 +226,8 @@ module type SMOOTH_NON_DIFF = sig
   
   val shape : tensor -> int array
   val add_ : tensor -> tensor -> unit
+  val sprint : scalar -> unit
+  val tprint : tensor -> unit
 end
 
 module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
