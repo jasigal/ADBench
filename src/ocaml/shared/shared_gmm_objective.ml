@@ -71,7 +71,6 @@ module Make
   let log_wishart_prior p wishart sum_qs qdiags icf =
     let n = float_of_int (Stdlib.(p + wishart.m + 1)) in
     let k = float_of_int ((shape icf).(0)) in
-
     let out = sum_reduce (
       (
         scalar_mul (S.float 0.5 *. wishart.gamma *. wishart.gamma)

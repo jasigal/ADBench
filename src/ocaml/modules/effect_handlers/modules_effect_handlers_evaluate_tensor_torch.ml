@@ -90,10 +90,10 @@ module Evaluate = struct
               let tout = T.copy t1 in
               let part = match ill with
                 | [[0]] -> tout
-                | [[s; (-1)]] -> T.narrow_copy ~dim:0 ~start:s ~length:Stdlib.((List.nth (T.size tout) 0) - s) tout
-                | [[s; e]] -> T.narrow_copy ~dim:0 ~start:s ~length:Stdlib.(e - s + 1) tout
-                | [[]; [s; (-1)]] -> T.narrow_copy ~dim:1 ~start:s ~length:Stdlib.((List.nth (T.size tout) 1) - s) tout
-                | [[]; [s; e]] -> T.narrow_copy ~dim:1 ~start:s ~length:Stdlib.(e - s + 1) tout
+                | [[s; (-1)]] -> T.narrow ~dim:0 ~start:s ~length:Stdlib.((List.nth (T.size tout) 0) - s) tout
+                | [[s; e]] -> T.narrow ~dim:0 ~start:s ~length:Stdlib.(e - s + 1) tout
+                | [[]; [s; (-1)]] -> T.narrow ~dim:1 ~start:s ~length:Stdlib.((List.nth (T.size tout) 1) - s) tout
+                | [[]; [s; e]] -> T.narrow ~dim:1 ~start:s ~length:Stdlib.(e - s + 1) tout
                 | _ -> raise (Invalid_argument "invalid set_slice use")
               in
               T.copy_ part ~src:t2;
