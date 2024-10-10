@@ -287,19 +287,8 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
     | Squeeze _ -> fun td -> reshape td (shape t)
     | Reshape _ -> fun td -> reshape td (shape t)
     | GetSlice ill -> fun td ->
-      print_string "GetSlice\n";
-      Printf.printf "ill\n";
-      List.iter (fun il ->
-        Printf.printf "[";
-        List.iter (fun i -> Printf.printf "%i; " i) il;
-        Printf.printf "]"
-      ) ill;
-      Printf.printf "t shape\n"; flush_all ();
-      Array.iter (fun i -> Printf.printf "%i; " i) (shape t);
-      Printf.printf "\n"; flush_all ();
       set_slice ill (zeros (shape t)) td
     | SliceLeft ia -> fun td ->
-      print_string "SliceLeft\n";
       let ill = Array.to_list (Array.map (fun i -> [i; i]) ia) in
       (* let shp = Array.(append (make (length ia) 1) (shape td)) in
       let tdr = reshape td shp in *)
@@ -349,14 +338,12 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
     | Einsum_mij_mik_to_ijk -> fun td ->
       (einsum_ijk_mik_to_mij td t2, einsum_ijk_mij_to_mik td t1)
     | SetSlice ill -> fun td ->
-      print_string "SetSlice\n";
       (set_slice ill td (zeros (shape t2)), get_slice ill td)
 
   let der_t_to_s (o : t_to_s) t = match o with
     | Get ia ->
       let ill = Array.to_list (Array.map (fun i -> [i]) ia) in
       (fun sd ->
-        print_string "Get\n";
         let ones = Array.(make (length (shape t)) 1) in
         set_slice ill (zeros (shape t)) (scalar_mul sd (create ones 1.0))
       )

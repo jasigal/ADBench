@@ -91,25 +91,8 @@ module Evaluate = struct
                 | [[s; e]] -> T.narrow_copy ~dim:0 ~start:s ~length:Stdlib.(e - s + 1) tout
                 | [[]; [s; (-1)]] -> T.narrow_copy ~dim:1 ~start:s ~length:Stdlib.((List.nth (T.size tout) 1) - s) tout
                 | [[]; [s; e]] -> T.narrow_copy ~dim:1 ~start:s ~length:Stdlib.(e - s + 1) tout
-                | _ ->
-                  Printf.printf "ill\n";
-                  List.iter (fun il ->
-                    Printf.printf "[";
-                    List.iter (fun i -> Printf.printf "%i; " i) il;
-                    Printf.printf "]"
-                  ) ill;
-                  Printf.printf "\n";
-                  raise (Invalid_argument "invalid set_slice use")
+                | _ -> raise (Invalid_argument "invalid set_slice use")
               in
-              Printf.printf "t1 shape\n"; flush_all ();
-              Array.iter (fun i -> Printf.printf "%i; " i) (shape t1);
-              Printf.printf "\n"; flush_all ();
-              Printf.printf "t2 shape\n"; flush_all ();
-              Array.iter (fun i -> Printf.printf "%i; " i) (shape t2);
-              Printf.printf "\n"; flush_all ();
-              Printf.printf "part shape\n"; flush_all ();
-              Array.iter (fun i -> Printf.printf "%i; " i) (shape part);
-              Printf.printf "\n"; flush_all ();
               T.copy_ part ~src:t2;
               continue k tout
         )
