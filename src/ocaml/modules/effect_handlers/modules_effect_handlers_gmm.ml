@@ -1,6 +1,5 @@
 open Adbench_shared
-open Owl.Dense.Ndarray.Generic
-open Modules_effect_handlers_evaluate_tensor
+open Modules_effect_handlers_evaluate_tensor_torch
 open Modules_effect_handlers_reverse_tensor
 
 module FloatScalar : Shared_gmm_types.GMM_SCALAR
@@ -9,6 +8,7 @@ module FloatScalar : Shared_gmm_types.GMM_SCALAR
   type t = float
 
   let float x = x
+  let print x = Printf.printf "%f" x
   let log = Stdlib.log
   let ( +. ) = Stdlib.( +. )
   let ( -. ) = Stdlib.( -. )
@@ -23,6 +23,7 @@ module EvaluateScalar : Shared_gmm_types.GMM_SCALAR
   type t = Evaluate.scalar
 
   let float = c
+  let print x = Printf.printf "%f" x
 end
 
 module ReverseEvaluate = Reverse (Evaluate)
@@ -34,53 +35,7 @@ module ReverseScalar : Shared_gmm_types.GMM_SCALAR
   type t = ReverseEvaluate.scalar
 
   let float = c
-end
-
-module OwlFloatTensor : Shared_gmm_types.GMM_TENSOR
-  with type t = (float, Bigarray.float64_elt) Owl.Dense.Ndarray.Generic.t
-  with type scalar = float
-= struct
-  type t = (float, Bigarray.float64_elt) Owl.Dense.Ndarray.Generic.t
-  type scalar = float
-
-  open Owl.Dense.Ndarray.Generic
-
-  let einsum_ijk_mik_to_mij a x =
-    let ( - ) = Stdlib.( - ) in
-    let (n, k) = ((shape x).(0), (shape x).(1)) in
-    let y = empty Bigarray.Float64 (shape x) in
-    for i = 0 to n - 1 do
-      for j = 0 to k - 1 do
-        (* Slice left are views, i.e. memory is shared. *)
-        let sa = slice_left a [|j|] in
-        let sx = slice_left x [|i; j|] in
-        let sy = slice_left y [|i; j|] in
-        Owl.Cblas.gemv ~trans:false ~incx:1 ~incy:1 ~alpha:1.0 ~beta:0.0
-                       ~a:sa ~x:sx ~y:sy;
-      done;
-    done;
-    y
-
-  let tensor x = x
-  let shape = shape
-  let zeros = zeros Bigarray.Float64
-  let create = create Bigarray.Float64
-  let concatenate = concatenate
-  let stack = stack
-  let squeeze = squeeze
-  let get_slice = get_slice
-  let slice_left = slice_left
-  let get = get
-  let einsum_ijk_mik_to_mij = einsum_ijk_mik_to_mij
-  let exp = exp
-  let add = add
-  let sub = sub
-  let mul = mul
-  let sum_reduce = sum_reduce
-  let log_sum_exp = log_sum_exp
-  let scalar_mul = scalar_mul
-  let sub_scalar = sub_scalar
-  let pow_const = pow_scalar
+  let print x = Printf.printf "{v: %f, dv: %f}" x.v x.dv
 end
 
 module EvaluateTensor : Shared_gmm_types.GMM_TENSOR
@@ -92,6 +47,7 @@ module EvaluateTensor : Shared_gmm_types.GMM_TENSOR
   type scalar = Evaluate.scalar
 
   let tensor x = x
+  let print x = Torch.Tensor.print x
   let add = ( + )
   let sub = ( - )
   let mul = ( * )
@@ -105,35 +61,39 @@ module ReverseTensor : Shared_gmm_types.GMM_TENSOR
   type t = ReverseEvaluate.tensor
   type scalar = ReverseEvaluate.scalar
 
-  let tensor x = {
-    v = x;
-    dv = Evaluate.zeros (Owl.Dense.Ndarray.Generic.shape x)
-  }
+  let tensor x =
+    {
+      v = x;
+      dv = Evaluate.zeros (Array.of_list (Torch.Tensor.shape x))
+    }
+  let print x = Torch.Tensor.print x.v; Torch.Tensor.print x.dv
   let create ia f = create ia (Evaluate.c f)
   let add = ( + )
   let sub = ( - )
   let mul = ( * )
 end
 
+module T = Torch.Tensor
+
 module GMMTest () : Shared_test_interface.TEST
   with type input =
-    (float, (float, Bigarray.float64_elt) t)
+    (float, T.t)
       Shared_gmm_data.gmm_input
   with type output =
-   (float, (float, Bigarray.float64_elt) t)
+   (float, T.t)
      Shared_gmm_data.gmm_output
 = struct
   type input =
-    (float, (float, Bigarray.float64_elt) t)
+    (float, T.t)
       Shared_gmm_data.gmm_input
   type output =
-    (float, (float, Bigarray.float64_elt) t)
+    (float, T.t)
       Shared_gmm_data.gmm_output
 
   let input = ref None
   let objective = ref 0.0
-  let gradient = ref (zeros Bigarray.Float64 [|0|])
-  let _grads = ref (Array.init 3 (fun _ -> zeros Bigarray.Float64 [|0|]))
+  let gradient = ref (T.zeros [0])
+  let _grads = ref (Array.init 3 (fun _ -> T.zeros [0]))
 
   let prepare input' =
     input := Some input'
@@ -177,8 +137,8 @@ module GMMTest () : Shared_test_interface.TEST
           _grads := grads
         done
   let output _ =
-    let flattened = Array.map flatten !_grads in
-    gradient := concatenate flattened;
+    let flattened = Array.map Stdlib.(fun t -> T.view ~size:([List.fold_left ( * ) 1 (T.shape t)]) t) !_grads in
+    gradient := T.concatenate ~dim:0 (Array.to_list flattened);
     {
       Shared_gmm_data.objective = !objective;
       Shared_gmm_data.gradient = !gradient

@@ -66,28 +66,28 @@ module Output_formatter = struct
   
   let save_vector_to_file filepath vector =
     let oc = open_out filepath in
-    assert (Array.length (Owl.Dense.Ndarray.Generic.shape vector) == 1);
-    Owl.Dense.Ndarray.Generic.iter
-      (Printf.fprintf oc "%.*g\n" precision) vector;
+    assert (List.length (Torch.Tensor.shape vector) == 1);
+    Array.iter
+      (Printf.fprintf oc "%.*g\n" precision) (Torch.Tensor.to_float1_exn vector);
     close_out oc
 end
 
-module T = Owl.Dense.Ndarray.Generic
+module T = Torch.Tensor
 
 module GMM_IO : DATA_IO
   with type input =
-    (float, (float, Bigarray.float64_elt) T.t)
+    (float, T.t)
       Adbench_shared.Shared_gmm_data.gmm_input
   with type output =
-    (float, (float, Bigarray.float64_elt) T.t)
+    (float, T.t)
       Adbench_shared.Shared_gmm_data.gmm_output
   with type parameters = Adbench_shared.Shared_gmm_data.gmm_parameters
 = struct
   type input =
-    (float, (float, Bigarray.float64_elt) T.t)
+    (float, T.t)
       Adbench_shared.Shared_gmm_data.gmm_input
   type output =
-    (float, (float, Bigarray.float64_elt) T.t)
+    (float, T.t)
       Adbench_shared.Shared_gmm_data.gmm_output
   type parameters = Adbench_shared.Shared_gmm_data.gmm_parameters
 

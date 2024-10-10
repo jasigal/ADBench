@@ -29,16 +29,23 @@ module Make
     let make_l_col i =
       let nelems = Stdlib.(d - i - 1) in
       (* Slicing in Owl requires inculsive indices, so will not create
-      * an empty tensor. Thus we have two cases. 
+      * an empty tensor. Thus we have two cases.
       *)
       let max_lparamidx = (shape icfs).(0) in
       let col =
         if Stdlib.(!lparamidx >= max_lparamidx) then
           zeros [|Stdlib.(i + 1)|]
-        else concatenate ~axis:0 [|
-          zeros [|Stdlib.(i + 1)|];
-          get_slice [[!lparamidx; Stdlib.(!lparamidx + nelems - 1)]] icfs;
-      |] in
+        else if !lparamidx == Stdlib.(!lparamidx + nelems - 1) then
+          concatenate ~axis:0 [|
+            zeros [|Stdlib.(i + 1)|];
+            reshape (get_slice [[!lparamidx; Stdlib.(!lparamidx + nelems - 1)]] icfs) [|1|];
+          |]
+        else
+          concatenate ~axis:0 [|
+            zeros [|Stdlib.(i + 1)|];
+            squeeze (get_slice [[!lparamidx; Stdlib.(!lparamidx + nelems - 1)]] icfs);
+          |]
+      in
       lparamidx := Stdlib.(!lparamidx + nelems);
       col
     in
@@ -64,7 +71,6 @@ module Make
   let log_wishart_prior p wishart sum_qs qdiags icf =
     let n = float_of_int (Stdlib.(p + wishart.m + 1)) in
     let k = float_of_int ((shape icf).(0)) in
-    
     let out = sum_reduce (
       (
         scalar_mul (S.float 0.5 *. wishart.gamma *. wishart.gamma)
@@ -101,11 +107,11 @@ module Make
 
     let icf_sz = (shape param.icfs).(0) in
     let ls = stack (Array.init icf_sz (fun i ->
-      constructl d (slice_left param.icfs [|i|]))
+      constructl d (squeeze (slice_left param.icfs [|i|])))
     ) in
 
     let xcentered = squeeze (stack (Array.init n (fun i ->
-      let sx = slice_left param.x [|i|] in
+      let sx = squeeze (slice_left param.x [|i|]) in
       (* Prevent implicit broadcasting *)
       let ssx = stack (Array.make k sx) in
       ssx - param.means
@@ -126,7 +132,7 @@ module Make
     let const = create [||] Stdlib.(
       -. (float_of_int n) *. (float_of_int d) *. 0.5 *. log (2.0 *. Float.pi)
     ) in
-    
+
     let wish = log_wishart_prior d param.wishart sum_qs qdiags param.icfs in
     get (
       const + slse

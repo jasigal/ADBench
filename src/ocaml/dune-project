@@ -8,6 +8,6 @@
  (name adbench)
  (synopsis "OCaml package for ADBench")
  (description "OCaml package for ADBench")
- (depends ocaml dune owl unix)
+ (depends ocaml dune unix owl torch)
  (tags
   ()))

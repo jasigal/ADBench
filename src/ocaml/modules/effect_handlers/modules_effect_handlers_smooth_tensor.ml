@@ -32,6 +32,92 @@ type s't_to_t = ScalarMultiply | SubtractScalar
 type ta_to_t = Concatenate of int option | Stack of int option
 type t_to_ta = Split of int option * int array
 
+let print_u_to_s o =
+  let str = match o with
+    | Const _ -> "Const"
+  in
+  print_string str;
+  print_newline ()
+let print_s_to_s (o : s_to_s) =
+  let str = match o with
+    | Negate -> "Negate"
+    | Log -> "Log"
+  in
+  print_string str;
+  print_newline ()
+let print_s's_to_s (o : s's_to_s) =
+  let str = match o with
+    | Add -> "Add"
+    | Subtract -> "Subtract"
+    | Multiply -> "Multiply"
+    | Divide -> "Divide"
+  in
+  print_string str;
+  print_newline ()
+let print_u_to_t o =
+  let str = match o with
+    | Zeros _ -> "Zeroes"
+    | Create _ -> "Create"
+  in
+  print_string str;
+  print_newline ()
+let print_t_to_t o =
+  let str = match o with
+    | Squeeze _ -> "Squeeze"
+    | Reshape _ -> "Reshape"
+    | GetSlice _ -> "GetSlice"
+    | SliceLeft _ -> "SliceLeft"
+    | Transpose _ -> "Transpose"
+    | Exp -> "Exp"
+    | Negate -> "Negate"
+    | PowerConst _ -> "PowerConst"
+    | SumReduce _ -> "SumReduce"
+    | LogSumExp _ -> "LogSumExp"
+    | Softmax _ -> "Softmax"
+  in
+  print_string str;
+  print_newline ()
+let print_t't_to_t o =
+  let str = match o with
+    | Add -> "Add"
+    | Subtract -> "Subtract"
+    | Multiply -> "Multiply"
+    | Divide -> "Divide"
+    | Einsum_ijk_mik_to_mij -> "Einsum_ijk_mik_to_mij"
+    | Einsum_ijk_mij_to_mik -> "Einsum_ijk_mij_to_mik"
+    | Einsum_mij_mik_to_ijk -> "Einsum_mij_mik_to_ijk"
+    | SetSlice _ -> "SetSlice"
+  in
+  print_string str;
+  print_newline ()
+let print_t_to_s o =
+  let str = match o with
+    | Get _ -> "Get"
+    | Sum -> "Sum"
+  in
+  print_string str;
+  print_newline ()
+let print_s't_to_t o =
+  let str = match o with
+    | ScalarMultiply -> "ScalarMultiply"
+    | SubtractScalar -> "SubtractScalar"
+  in
+  print_string str;
+  print_newline ()
+let print_ta_to_t o =
+  let str = match o with
+    | Concatenate _ -> "Concatenate"
+    | Stack _ -> "Stack"
+  in
+  print_string str;
+  print_newline ()
+let print_t_to_ta o =
+  let str = match o with
+    | Split _ -> "Split"
+  in
+  print_string str;
+  print_newline ()
+
 type arg = L | R
 
 module type SMOOTH = sig
@@ -201,6 +287,14 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
   let scalar_mul s t = perform (Ap_s't_to_t (ScalarMultiply, s, t))
   let sub_scalar t s = perform (Ap_s't_to_t (SubtractScalar, s, t))
 
+  (* Helper function *)
+  let adjust_index i m = Stdlib.(
+    if i >= 0 && i < m
+    then i
+    else if i < 0 && i >= -m
+    then i + m
+    else raise (Invalid_argument "Index out of bounds"))
+
   (* Simple expand operation. ia contains which axes to expand. *)
   let _expand t shp ia =
     let res = ref t in
@@ -280,10 +374,10 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
     | Reshape _ -> fun td -> reshape td (shape t)
     | GetSlice ill -> fun td -> set_slice ill (zeros (shape t)) td
     | SliceLeft ia -> fun td ->
-      let ill = Array.to_list (Array.map (fun i -> [i]) ia) in
-      let shp = Array.(append (make (length ia) 1) (shape td)) in
-      let tdr = reshape td shp in
-      set_slice ill (zeros (shape t)) tdr
+      let ill = Array.to_list (Array.map (fun i -> [i; i]) ia) in
+      (* let shp = Array.(append (make (length ia) 1) (shape td)) in
+      let tdr = reshape td shp in *)
+      set_slice ill (zeros (shape t)) td
     | Transpose iao ->
       let ia = match iao with
         | None ->
@@ -357,7 +451,7 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
       (fun td ->
         let shp = shape td in
         let ndim = Array.length shp in
-        let axis = Owl_utils.adjust_index i ndim in
+        let axis = adjust_index i ndim in
         let inp_shp = shape ta.(0) in
         split ~axis:i (Array.make shp.(axis) 1) td
           |> Array.map (fun x -> reshape x inp_shp)

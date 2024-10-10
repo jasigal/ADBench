@@ -1,3 +1,3 @@
 (library
  (name adbench_shared)
- (libraries unix owl))
+ (libraries unix owl torch))
