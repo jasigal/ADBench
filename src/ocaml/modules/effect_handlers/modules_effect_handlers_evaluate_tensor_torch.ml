@@ -15,6 +15,7 @@ module Evaluate_Non_Diff : SMOOTH_NON_DIFF
   let add_ x dx = let _ = Torch.Tensor.add_ x dx in ()
   let sprint s = print_float s
   let tprint t = T.print t
+  let all_zeros t = (T.get_float1 (T.sum_to_size (T.abs t) ~size:[1]) 0) < 0.0001
 end
 
 module Evaluate = struct

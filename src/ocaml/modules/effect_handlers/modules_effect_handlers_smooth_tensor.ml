@@ -148,6 +148,7 @@ module type SMOOTH = sig
   val add_ : tensor -> tensor -> unit
   val sprint : scalar -> unit
   val tprint : tensor -> unit
+  val all_zeros : tensor -> bool
 
   (* Creating constant tensors *)
   val zeros : int array -> tensor
@@ -228,6 +229,7 @@ module type SMOOTH_NON_DIFF = sig
   val add_ : tensor -> tensor -> unit
   val sprint : scalar -> unit
   val tprint : tensor -> unit
+  val all_zeros : tensor -> bool
 end
 
 module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH

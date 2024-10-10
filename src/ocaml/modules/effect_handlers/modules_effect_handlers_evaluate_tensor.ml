@@ -14,6 +14,7 @@ module Evaluate_Non_Diff : SMOOTH_NON_DIFF
   let add_ x dx = Owl.Dense.Ndarray.Generic.add_ ~out:x x dx
   let sprint s = print_float s
   let tprint t = T.print t
+  let all_zeros _ = false
 end
 
 module Evaluate = struct
