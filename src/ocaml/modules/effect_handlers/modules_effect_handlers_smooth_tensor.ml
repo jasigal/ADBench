@@ -378,15 +378,7 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
   let der_t_to_t (o : t_to_t) t = match o with
     | Squeeze _ -> fun td -> reshape td (shape t)
     | Reshape _ -> fun td -> reshape td (shape t)
-    | GetSlice ill -> fun td ->
-      print_string "der_t_to_t/GetSlice\n"; flush_all ();
-      print_string "td\n"; flush_all ();
-      T.tprint td; flush_all ();
-      let out = (zeros (shape t)) in
-      let res = set_slice ill out td in
-      print_string "out\n"; flush_all ();
-      T.tprint res; flush_all ();
-      res
+    | GetSlice ill -> fun td -> set_slice ill (zeros (shape t)) td
     | SliceLeft ia -> fun td ->
       let ill = Array.to_list (Array.map (fun i -> [i; i]) ia) in
       (* let shp = Array.(append (make (length ia) 1) (shape td)) in
