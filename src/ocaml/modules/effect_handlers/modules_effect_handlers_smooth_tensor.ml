@@ -300,10 +300,10 @@ module Smooth (T : SMOOTH_NON_DIFF) : SMOOTH
       set_slice ill (zeros (shape t)) td
     | SliceLeft ia -> fun td ->
       print_string "SliceLeft\n";
-      let ill = Array.to_list (Array.map (fun i -> [i]) ia) in
-      let shp = Array.(append (make (length ia) 1) (shape td)) in
-      let tdr = reshape td shp in
-      set_slice ill (zeros (shape t)) tdr
+      let ill = Array.to_list (Array.map (fun i -> [i; i]) ia) in
+      (* let shp = Array.(append (make (length ia) 1) (shape td)) in
+      let tdr = reshape td shp in *)
+      set_slice ill (zeros (shape t)) td
     | Transpose iao ->
       let ia = match iao with
         | None ->

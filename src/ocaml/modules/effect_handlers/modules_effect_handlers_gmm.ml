@@ -137,7 +137,8 @@ module GMMTest () : Shared_test_interface.TEST
           _grads := grads
         done
   let output _ =
-    let flattened = Array.map T.flatten !_grads in
+    let flattened = Array.map Stdlib.(fun t -> T.view ~size:([List.fold_left ( * ) 1 (T.shape t)]) t) !_grads in
+    let _ = Array.map T.print flattened in
     gradient := T.concatenate ~dim:0 (Array.to_list flattened);
     {
       Shared_gmm_data.objective = !objective;

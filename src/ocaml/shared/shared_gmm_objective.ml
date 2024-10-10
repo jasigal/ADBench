@@ -118,7 +118,7 @@ module Make
     let xshape = shape param.x in
     let n = xshape.(0) in
     let d = xshape.(1) in
-    (* let k = (shape param.means).(0) in *)
+    let k = (shape param.means).(0) in
 
     Printf.printf "qdiags\n"; flush_all ();
     let qdiags = exp (get_slice [[]; [0; Stdlib.(d - 1)]] param.icfs) in
@@ -151,10 +151,10 @@ module Make
 
     Printf.printf "xcentered\n"; flush_all ();
     let xcentered = squeeze (stack (Array.init n (fun i ->
-      let sx = slice_left param.x [|i|] in
+      let sx = squeeze (slice_left param.x [|i|]) in
       (* Prevent implicit broadcasting *)
-      (* let ssx = stack (Array.make k sx) in *)
-      sx - param.means
+      let ssx = stack (Array.make k sx) in
+      ssx - param.means
     ))) in
     print xcentered;
     Printf.printf "lxcentered\n"; flush_all ();
