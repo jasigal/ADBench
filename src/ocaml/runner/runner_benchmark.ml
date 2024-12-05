@@ -55,20 +55,20 @@ module Output_formatter = struct
   
   let save_time_to_file filepath objective_time jacobian_time =
     let oc = open_out filepath in
-    Printf.fprintf oc "%.*g\n%.*g"
+    Printf.fprintf oc "%.*e\n%.*e"
       precision objective_time precision jacobian_time;
     close_out oc
 
   let save_value_to_file filepath value =
     let oc = open_out filepath in
-    Printf.fprintf oc "%.*g" precision value;
+    Printf.fprintf oc "%.*e" precision value;
     close_out oc
   
   let save_vector_to_file filepath vector =
     let oc = open_out filepath in
     assert (List.length (Torch.Tensor.shape vector) == 1);
     Array.iter
-      (Printf.fprintf oc "%.*g\n" precision) (Torch.Tensor.to_float1_exn vector);
+      (Printf.fprintf oc "%.*e\n" precision) (Torch.Tensor.to_float1_exn vector);
     close_out oc
 end
 
